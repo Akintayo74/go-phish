@@ -6,6 +6,8 @@
 const express = require('express');
 const { createRequestLogger } = require('./middleware/requestLogger');
 const healthRoutes = require('./routes/health');
+const cohortRoutes = require('./routes/cohorts');
+const participantRoutes = require('./routes/participants');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -20,6 +22,9 @@ function createApp({ logger } = {}) {
 
   // Routes
   app.use('/', healthRoutes);
+  // Phase 2 — consent & participant management.
+  app.use('/api/cohorts', cohortRoutes);
+  app.use('/api/participants', participantRoutes);
 
   // 404
   app.use((req, res) => {

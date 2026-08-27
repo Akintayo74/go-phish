@@ -55,10 +55,17 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–1 complete (scaffolding; data model & schema). Next: **Phase 2 —
-consent & participant management**. See
+Phases 0–2 complete (scaffolding; data model & schema; consent & participant
+management). Next: **Phase 3 — admin auth + campaign CRUD**. See
 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
+
+Consent is the load-bearing delivery gate (guardrail #3): the cohort/participant
+APIs live under `/api/cohorts` and `/api/participants`, and **all** future
+targeting must go through `backend/src/services/consent.js` — a participant is
+deliverable only when their cohort's consent is `granted` and they have not
+opted out. The named test `backend/tests/consent.guardrail.test.js` pins this
+rule; do not weaken it.
 
 The schema enforces the credential-safety invariant: the `interactions` table
 has **no column** able to hold a submitted credential, checked by the named

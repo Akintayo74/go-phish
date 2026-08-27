@@ -5,11 +5,12 @@
 // aware helpers in their own modules.
 
 const { createRepository } = require('./base');
+const cohorts = require('./cohorts');
 const participants = require('./participants');
 const interactions = require('./interactions');
 
 module.exports = {
-  cohorts: createRepository('cohorts'),
+  cohorts,
   campaigns: createRepository('campaigns'),
   participants,
   interactions,

@@ -24,8 +24,14 @@ async function findByIdentifier(identifier, trx) {
   return repo.findWhere({ email_or_phone_hash: hashIdentifier(identifier) }, trx);
 }
 
-async function optOut(id, trx) {
-  return repo.update(id, { opted_out: true, opted_out_at: new Date() }, trx);
+async function optOut(id, at = new Date(), trx) {
+  return repo.update(id, { opted_out: true, opted_out_at: at }, trx);
+}
+
+// Reverses an individual opt-out (e.g. the participant re-consents). Clears the
+// flag and the timestamp; cohort-level consent is unaffected.
+async function optIn(id, trx) {
+  return repo.update(id, { opted_out: false, opted_out_at: null }, trx);
 }
 
 module.exports = {
@@ -33,4 +39,5 @@ module.exports = {
   createFromIdentifier,
   findByIdentifier,
   optOut,
+  optIn,
 };
