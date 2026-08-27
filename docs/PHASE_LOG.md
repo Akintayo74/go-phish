@@ -35,9 +35,52 @@ full plan.
 - Migration + seed directories are configured in `knexfile.js`
   (`backend/migrations`, `backend/seeds`) but empty — Phase 1 fills them.
 
-## Next: Phase 1 — Data model & schema (Opus 5)
+## Phase 1 — Data model & schema ✅
 
-Build the full schema (`Campaign, Participant, Interaction, TrainingAssignment,
-LearningModule, Quiz`) as Knex migrations. The `Interaction` table must have
-**no column** capable of holding a credential, enforced at the schema level
-with a named test asserting the exact column set.
+**Delivered**
+- Seven Knex migrations under `backend/migrations/` building the full backbone:
+  `cohorts` (consent unit), `campaigns`, `participants`, `interactions`,
+  `learning_modules`, `quizzes`, `training_assignments`. UUID PKs
+  (`gen_random_uuid()`), FK relationships, check constraints on status/enum
+  fields, and indexes. (`cohorts` is added here because consent is cohort-level
+  and load-bearing for guardrail #3; Phase 2 layers CRUD/opt-out on top.)
+- **Guardrail #1 (no credentials), enforced at the schema level:**
+  `interactions` holds only behavioral flags + timestamps
+  (`opened/clicked/submitted/disclosed` + `_at`s, `tracking_token`) — there is
+  **no** column able to hold a submitted credential or raw form value.
+  `submitted` is a pure boolean. Table/column `COMMENT`s document the invariant.
+- **Guardrail #6 (data minimization):** `participants` stores
+  `email_or_phone_hash` (keyed HMAC-SHA-256 via `src/lib/hash.js`), never raw
+  email/phone; only role/department/cohort + opt-out flag beyond that.
+- Repository/query layer under `backend/src/repositories/`: a shared factory
+  (`base.js`) plus guardrail-aware `participants` (hashes on write) and
+  `interactions` (`markSubmitted` takes **no** value argument — nowhere to put
+  one). `index.js` exposes all seven repos.
+- Seed data (`backend/seeds/01_demo_data.js`): 2 cohorts (one consented, one
+  pending), 3 hashed participants, 1 draft campaign, 3 learning modules, 1 quiz.
+  No raw PII, no interaction values.
+- Config: `IDENTITY_HASH_SECRET` added to `src/config` and both `.env.example`s.
+
+**Named guardrail tests (two, defense in depth)**
+- `tests/schema.interactions.guardrail.test.js` — **DB-free**, always runs in
+  CI. Drives the interactions migration through a recording stub and asserts
+  the exact column set + that no column name is credential-shaped
+  (`password`, `credential`, `form_data`, `otp`, …). Fails the build if the
+  migration source drifts.
+- `tests/schema.db.test.js` — runs the real migrations against `catsim_test`
+  and asserts the applied column set + that all seven tables exist and
+  `participants` has no raw email/phone column. Skips with a warning (does not
+  fail) when no Postgres is reachable.
+
+**Verified**
+- `npm test` → 14 tests pass (12 backend incl. both schema guardrails, 2
+  frontend). Migrations + seeds applied to a live Postgres 16;
+  `\d interactions` confirms the exact behavioral-only column set.
+
+**Notes for next phase**
+- Phase 2 (consent & participant management, *Sonnet 5*): build CRUD/API on top
+  of the `cohorts`/`participants` tables + repos already present. Consent
+  columns (`consent_status`, per-participant `opted_out`) exist; wire the
+  opt-out flow and the "no delivery to non-consented/opted-out targets" rule.
+- To run the DB-backed test/migrations locally you need Postgres reachable at
+  `DATABASE_URL` (role `catsim`, DBs `catsim_dev` / `catsim_test`).
