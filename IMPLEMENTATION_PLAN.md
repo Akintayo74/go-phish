@@ -87,7 +87,7 @@ design.
 
 | # | Phase | Depends on | Model | Why this model |
 |---|---|---|---|---|
-| 0 | Scaffolding & foundations | — | **Sonnet 5** | Mechanical boilerplate |
+| 0 | Scaffolding & foundations ✅ | — | **Sonnet 5** | Mechanical boilerplate |
 | 1 | Data model & schema | 0 | **Opus 5** | Backbone + schema-level credential-safety invariant |
 | 2 | Consent & participant management | 1 | **Sonnet 5** | Well-specified CRUD (consent is load-bearing but spelled out) |
 | 3 | Admin auth + campaign CRUD skeleton | 1 | **Sonnet 5** | Standard JWT + CRUD |

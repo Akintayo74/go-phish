@@ -1,0 +1,25 @@
+{
+  "name": "@cat-sim/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CAT-Sim frontend (admin console + public CAT learning site)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.6",
+    "@testing-library/react": "^16.0.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^24.1.0",
+    "vite": "^5.3.3",
+    "vitest": "^2.0.2"
+  }
+}
