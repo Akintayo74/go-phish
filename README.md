@@ -55,10 +55,11 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–4 complete (scaffolding; data model & schema; consent & participant
+Phases 0–5 complete (scaffolding; data model & schema; consent & participant
 management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
-form + disclosure). Next: **Phase 5 — interaction tracking + campaign delivery**.
-See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
+form + disclosure; interaction tracking + campaign delivery). Next: **Phase 6 —
+CAT platform: lesson modules + resource library**. See
+[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
 
 Admin console auth is JWT-based (Phase 3). Operators have one of two roles —
@@ -92,5 +93,21 @@ posted value** and records only `submitted = true` before redirecting to
 `GET /sim/:token/disclosure`, which reveals the simulation (guardrail #4). The
 pages are server-rendered with **no client JavaScript**. The named test
 `backend/tests/sim.form.guardrail.test.js` pins that submitted field values are
-never persisted, logged, or echoed — do not weaken it. Delivery (minting the
-token and the tracked-link redirect into this page) is Phase 5.
+never persisted, logged, or echoed — do not weaken it.
+
+Interaction tracking + delivery (Phase 5) mint one opaque token per
+(campaign, participant) and email it as a tracked link. The public, unauthenticated
+tracking routes live under `/t`: `GET /t/:token` flips `clicked` (which implies
+`opened`) and redirects to the Phase 4 decoy page, and `GET /t/:token/pixel.gif`
+is an optional open-tracking pixel — both record behavioral flags only and leak
+nothing about whether a token is valid. A Program Admin triggers a manual send
+with `POST /api/campaigns/:id/send` (the campaign must be `active`); because the
+system stores only a keyed **hash** of each address (guardrail #6), the admin
+supplies the raw recipient roster **transiently in the request body** — it is
+hashed to match stored participants, gated through `services/consent.js`
+(guardrail #3), used only as the mail `to`, and **never persisted**. Sending uses
+a pluggable mailer (`MAIL_PROVIDER`, default hermetic `console`) and the response
+is an **aggregate summary only** (guardrail #5). The named test
+`backend/tests/delivery.guardrail.test.js` pins that non-consented/opted-out
+targets are never emailed and that no raw address reaches any table — do not
+weaken it.

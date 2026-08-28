@@ -19,6 +19,7 @@ const { campaigns } = require('../repositories');
 const { asyncHandler, badRequest, notFound, HttpError } = require('../lib/http');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { ROLES } = require('../lib/roles');
+const { sendCampaign } = require('../services/delivery');
 
 const router = express.Router();
 
@@ -146,5 +147,25 @@ router.post('/:id/activate', transition('active'));
 router.post('/:id/pause', transition('paused'));
 router.post('/:id/complete', transition('completed'));
 router.post('/:id/archive', transition('archived'));
+
+// Manual "send now" (Phase 5). Program Admin only. The admin supplies the raw
+// recipient addresses transiently in the body (the system stores only hashes —
+// guardrail #6); delivery hashes each to match a stored participant, gates every
+// one through consent (guardrail #3), and never persists an address. The request
+// body carrying the addresses is excluded from logs by the global logger
+// (guardrail #2). Returns an AGGREGATE summary only (guardrail #5).
+router.post(
+  '/:id/send',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    if (!Array.isArray(body.recipients)) throw badRequest('recipients_required');
+    const summary = await sendCampaign({
+      campaignId: req.params.id,
+      recipients: body.recipients,
+      resend: body.resend === true,
+    });
+    res.json({ data: summary });
+  })
+);
 
 module.exports = router;

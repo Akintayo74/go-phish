@@ -92,7 +92,7 @@ design.
 | 2 | Consent & participant management | 1 | **Sonnet 5** | Well-specified CRUD (consent is load-bearing but spelled out) |
 | 3 | Admin auth + campaign CRUD skeleton ✅ | 1 | **Sonnet 5** | Standard JWT + CRUD |
 | 4 | Simulated landing page + dummy form + disclosure ✅ | 1 | **Opus 5** | **Highest-sensitivity piece**; discard-values + no-log invariant |
-| 5 | Interaction tracking + campaign delivery | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
+| 5 | Interaction tracking + campaign delivery ✅ | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
 | 6 | CAT platform — lesson modules + resource library | 0 | **Sonnet 5** | Content + React rendering |
 | 7 | CAT platform — quiz engine + knowledge checks | 6 | **Sonnet 5** | Scoring logic + UI |
 | 8 | Automatic enrollment loop | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
@@ -134,7 +134,7 @@ design.
   field values are persisted anywhere; built for independent (non-author)
   review — this is the highest-sensitivity component.
 
-**Phase 5 — Interaction tracking + campaign delivery** · *Sonnet 5* (Steps 4–5)
+**Phase 5 — Interaction tracking + campaign delivery** · *Sonnet 5* (Steps 4–5) ✅
 - Unique per-participant tokened link → sets `opened/clicked` → redirects to
   Phase 4 landing page. Optional open-tracking pixel.
 - Email provider integration; templated send embedding the tracking link;

@@ -56,4 +56,9 @@ export const api = {
   createCampaign: (attrs) => request('/campaigns', { method: 'POST', body: attrs }),
   campaignTransition: (id, action) =>
     request(`/campaigns/${id}/${action}`, { method: 'POST' }),
+  // Phase 5 — manual "send now". `recipients` is the raw address roster held by
+  // the admin; it is sent transiently and never stored by the backend. Returns
+  // an aggregate delivery summary.
+  sendCampaign: (id, recipients, { resend = false } = {}) =>
+    request(`/campaigns/${id}/send`, { method: 'POST', body: { recipients, resend } }),
 };

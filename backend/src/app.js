@@ -13,6 +13,7 @@ const cohortRoutes = require('./routes/cohorts');
 const participantRoutes = require('./routes/participants');
 const campaignRoutes = require('./routes/campaigns');
 const simRoutes = require('./routes/sim');
+const trackRoutes = require('./routes/track');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -40,6 +41,12 @@ function createApp({ logger } = {}) {
 
   // Phase 3 — campaign CRUD skeleton (no sending yet; delivery is Phase 5).
   app.use('/api/campaigns', campaignRoutes);
+
+  // Phase 5 — interaction tracking. Participant-facing, UNAUTHENTICATED: the
+  // tracked link `/t/:token` flips clicked/opened and redirects to the Phase 4
+  // decoy page; `/t/:token/pixel.gif` is the optional open-tracking pixel. These
+  // record behavioral flags only — no form, no body (see routes/track.js).
+  app.use('/t', trackRoutes);
 
   // Phase 4 — simulated landing page + dummy form + disclosure. Participant-
   // facing and intentionally UNAUTHENTICATED (reached via a tracked link, not
