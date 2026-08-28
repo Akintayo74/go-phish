@@ -90,7 +90,7 @@ design.
 | 0 | Scaffolding & foundations ✅ | — | **Sonnet 5** | Mechanical boilerplate |
 | 1 | Data model & schema ✅ | 0 | **Opus 5** | Backbone + schema-level credential-safety invariant |
 | 2 | Consent & participant management | 1 | **Sonnet 5** | Well-specified CRUD (consent is load-bearing but spelled out) |
-| 3 | Admin auth + campaign CRUD skeleton | 1 | **Sonnet 5** | Standard JWT + CRUD |
+| 3 | Admin auth + campaign CRUD skeleton ✅ | 1 | **Sonnet 5** | Standard JWT + CRUD |
 | 4 | Simulated landing page + dummy form + disclosure | 1 | **Opus 5** | **Highest-sensitivity piece**; discard-values + no-log invariant |
 | 5 | Interaction tracking + campaign delivery | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
 | 6 | CAT platform — lesson modules + resource library | 0 | **Sonnet 5** | Content + React rendering |
@@ -122,7 +122,7 @@ design.
 - CRUD for participants and cohorts; consent status field + opt-out flow.
 - Guardrail: delivery endpoints (later) must refuse non-consented targets.
 
-**Phase 3 — Admin auth + campaign CRUD skeleton** · *Sonnet 5* (Step 2)
+**Phase 3 — Admin auth + campaign CRUD skeleton** · *Sonnet 5* (Step 2) ✅
 - JWT admin login; role support (Program Admin, Researcher/Evaluator).
 - Campaign create/edit/pause (no sending yet); minimal admin UI shell.
 

@@ -143,3 +143,81 @@ full plan.
 - Phase 5 (delivery) MUST use `consent.deliverableParticipants` /
   `consent.isDeliverable` as the only path to a send target — do not re-derive
   eligibility inline.
+
+## Phase 3 — Admin auth + campaign CRUD skeleton ✅
+
+**Delivered**
+- **Dependency-free auth primitives** (Node `crypto` only — no jsonwebtoken /
+  bcrypt / argon2 added): `src/lib/jwt.js` (HS256 sign/verify with `exp` and a
+  constant-time signature compare; the header alg is fixed and re-derived on
+  verify, so the "alg: none" downgrade is impossible) and `src/lib/password.js`
+  (salted **scrypt** verifier, stored as `scrypt$N$salt$hash`, constant-time
+  compare). `src/lib/roles.js` defines the two roles (`program_admin`,
+  `researcher`) in one place, kept in sync with the DB check constraint.
+- **`admin_users` table** (migration `20260828120001`): operator accounts for
+  the console — id/name/email(unique, lower-cased)/`password_hash`/role(checked)
+  + timestamps. A column `COMMENT` records that `password_hash` is an operator
+  login verifier and is **unrelated** to guardrail #1 (which concerns
+  *simulation-target* credentials on `interactions`, still untouched).
+- **`adminUsers` repo** (`src/repositories/adminUsers.js`): guardrail-aware —
+  `createWithPassword` hashes before insert (a raw password never reaches the DB
+  layer), `findByEmail` normalizes case, and `toPublic(row)` strips
+  `password_hash` so it can never be serialized. Every admin-user response goes
+  through `toPublic`.
+- **Auth middleware** (`src/middleware/auth.js`): `requireAuth` verifies the
+  `Authorization: Bearer` token statelessly (no DB round-trip) and attaches
+  `req.admin`; `requireRole(...roles)` gates by role. Both fail closed.
+- **Auth API** (`/api/auth`): public `POST /login` (opaque `invalid_credentials`
+  on either unknown email or wrong password — no user enumeration; always runs a
+  verify to keep timing uniform), authenticated `GET /me` (from the token, no DB
+  lookup). Neither the password nor the hash appears in any response.
+- **Admin-user provisioning** (`/api/admin/users`, `program_admin` only): list +
+  create operators (min-8 password, validated role, duplicate email → 409). No
+  public self-registration.
+- **Campaign CRUD skeleton** (`/api/campaigns`) — **no sending happens here**
+  (delivery is Phase 5). Reads are open to any authenticated operator; create /
+  edit / delete / lifecycle are `program_admin`-only (researchers are read-only,
+  matching their evaluator role). Like cohort consent, `status` is never settable
+  via create/update — it moves only through the transition endpoints
+  (`/activate`, `/pause`, `/complete`, `/archive`) which enforce a small state
+  machine (`draft→active→paused…`, `archived` terminal); an illegal jump is a
+  clean 409. Only a `draft` campaign may be deleted; live ones must be archived.
+- **Auth applied to the Phase 2 routes** (per the Phase 2 hand-off note):
+  `/api/cohorts` and `/api/participants` now require a valid admin session.
+- **`campaigns` repo** gains `setStatus`; seed `02_admin_users.js` adds a demo
+  Program Admin + Researcher (dev-only password `changeme-dev-password`).
+  `JWT_SECRET` / `JWT_EXPIRES_IN_SECONDS` added to config + both `.env.example`s.
+- **Frontend admin shell**: `#/admin` hash route (no router dependency) mounts
+  `src/admin/AdminConsole.jsx` — login → campaign list with create + lifecycle
+  controls; write controls render only for Program Admins (researchers get a
+  read-only view), mirroring the backend gating. `src/admin/api.js` is the
+  token-aware fetch client.
+
+**Named guardrail test**
+- `tests/admin.credentials.guardrail.test.js` — pins that `toPublic` strips
+  `password_hash` (and doesn't mutate the row) and that the scrypt verifier is
+  one-way and never contains the raw password. `tests/auth.routes.test.js`
+  additionally asserts the login response body carries neither the password nor
+  the hash and that login does not enumerate users. The Phase 0 logging
+  guardrail (bodies never logged) already covers the posted password.
+
+**Verified**
+- `npm test` → **84 tests pass** (77 backend + 7 frontend); frontend production
+  build OK. Against a live Postgres 16 the migrations apply (8 total),
+  `\d admin_users` shows the checked-role + unique-email shape, the DB-backed
+  schema test runs (not skipped), and an end-to-end smoke confirmed: login (no
+  hash leak) → wrong-password/opaque-401 → unauth-401 → create(draft) → activate
+  → pause → illegal-transition-409, researcher forbidden to create but able to
+  read, and operator creation never leaking the hash.
+
+**Notes for next phase**
+- Phase 4 (simulated landing + dummy form + disclosure, *Opus 5*) is the
+  highest-sensitivity component: the form handler sets `submitted = true`,
+  **discards** posted values, and redirects to disclosure. It does not need the
+  admin auth added here (it is participant-facing), but it MUST keep the
+  no-persisted-field-values invariant and route-level body exclusion.
+- Phase 5 (delivery) will target campaigns created here; a campaign must be
+  `active` to send (enforce at send time), and targeting still routes only
+  through `consent.deliverableParticipants`.
+- Admin auth is now required on `/api/cohorts` and `/api/participants`; any new
+  admin-facing API should mount behind `requireAuth` too.

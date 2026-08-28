@@ -26,6 +26,12 @@ const config = {
   // deployment MUST override IDENTITY_HASH_SECRET with a strong random value.
   identityHashSecret:
     process.env.IDENTITY_HASH_SECRET || 'dev-only-insecure-identity-hash-secret',
+  // Secret for signing admin-session JWTs (Phase 3, src/lib/jwt.js). The dev
+  // default keeps local/test tokens verifiable; a real deployment MUST override
+  // JWT_SECRET with a strong random value or admin sessions can be forged.
+  jwtSecret: process.env.JWT_SECRET || 'dev-only-insecure-jwt-secret',
+  // Admin session lifetime in seconds (default 8h).
+  jwtExpiresInSeconds: parseInt(process.env.JWT_EXPIRES_IN_SECONDS || '28800', 10),
 };
 
 module.exports = Object.freeze(config);
