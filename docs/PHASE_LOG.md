@@ -84,3 +84,62 @@ full plan.
   opt-out flow and the "no delivery to non-consented/opted-out targets" rule.
 - To run the DB-backed test/migrations locally you need Postgres reachable at
   `DATABASE_URL` (role `catsim`, DBs `catsim_dev` / `catsim_test`).
+
+## Phase 2 — Consent & participant management ✅
+
+**Delivered**
+- **Consent service (`src/services/consent.js`) — the single delivery gate**
+  (guardrail #3). `isDeliverable(participant, cohort)` is a pure predicate that
+  is true **only** when the cohort's `consent_status === 'granted'` **and** the
+  participant is not `opted_out`; it fails closed on any missing/malformed
+  input. `deliverableParticipants(cohortId)` is the DB-backed enumeration
+  delivery (Phase 5) will call — it returns `[]` unless the cohort is granted
+  and excludes opted-out members, so a non-consented/opted-out target can never
+  even be enumerated. `ineligibilityReason(...)` names the blocking cause for
+  admin UIs. **All future targeting must route through this module.**
+- **Cohort API (`src/routes/cohorts.js`, mounted `/api/cohorts`):** list /
+  create / get / update / delete, plus consent transitions
+  `POST /:id/consent/grant` and `/:id/consent/withdraw`. `consent_status` is
+  **never** settable via create/update — it moves only through the two
+  transition endpoints (which also stamp `consent_granted_at` /
+  `consent_withdrawn_at`). Deleting a cohort that still has participants returns
+  `409 cohort_has_participants` (the FK is `ON DELETE RESTRICT`), not a 500.
+- **Participant API (`src/routes/participants.js`, mounted `/api/participants`):**
+  list (optional `?cohort_id=`), create, get, update, delete, plus the
+  individual `POST /:id/opt-out` and `/:id/opt-in` flow. Create takes a **raw**
+  identifier and hashes it via the repo (guardrail #6) — the raw value is never
+  stored and never echoed back in a response; a duplicate identifier maps to
+  `409 participant_already_exists` without leaking it.
+- **Repo/helpers:** new `src/repositories/cohorts.js` (`grantConsent` /
+  `withdrawConsent`); `participants` repo gains `optIn` (reverses opt-out).
+  `src/lib/http.js` adds `HttpError` / `asyncHandler` (uses the `status` +
+  `publicMessage` contract the app's error handler already honors, so no
+  request body is ever echoed in an error).
+
+**Named guardrail test**
+- `tests/consent.guardrail.test.js` — **DB-free**. Pins the full truth table of
+  `isDeliverable` (only granted-cohort + not-opted-out is deliverable; every
+  other combination and all malformed inputs are false) and the
+  `ineligibilityReason` mapping. Fails the build if the delivery gate ever
+  loosens.
+- Route tests (`tests/cohorts.routes.test.js`, `tests/participants.routes.test.js`)
+  run with the repositories mocked (no DB); the participant test also asserts
+  the posted raw identifier reaches the hashing repo but never appears in any
+  response body.
+
+**Verified**
+- `npm test` → **35 tests pass** (33 backend incl. the new consent guardrail +
+  route suites, 2 frontend).
+- Against a live Postgres 16: migrations apply; the DB-backed schema test runs
+  (not skipped); an end-to-end smoke run confirmed the gate — deliverable count
+  was 0 (cohort pending) → 2 (granted) → 1 (after one opt-out) → 0 (consent
+  withdrawn) — and that create never leaks the raw identifier.
+
+**Notes for next phase**
+- Phase 3 (admin auth + campaign CRUD, *Sonnet 5*): the cohort/participant APIs
+  are unauthenticated for now; Phase 3 adds JWT admin auth and should apply it
+  to these `/api` routes. Campaign CRUD layers onto the existing `campaigns`
+  table/repo the same way this phase layered onto `cohorts`/`participants`.
+- Phase 5 (delivery) MUST use `consent.deliverableParticipants` /
+  `consent.isDeliverable` as the only path to a send target — do not re-derive
+  eligibility inline.
