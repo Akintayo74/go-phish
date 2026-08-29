@@ -6,14 +6,17 @@
 
 const { createRepository } = require('./base');
 const cohorts = require('./cohorts');
+const campaigns = require('./campaigns');
 const participants = require('./participants');
 const interactions = require('./interactions');
+const adminUsers = require('./adminUsers');
 
 module.exports = {
   cohorts,
-  campaigns: createRepository('campaigns'),
+  campaigns,
   participants,
   interactions,
+  adminUsers,
   learningModules: createRepository('learning_modules'),
   quizzes: createRepository('quizzes'),
   trainingAssignments: createRepository('training_assignments'),

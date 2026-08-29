@@ -24,10 +24,14 @@ jest.mock('../src/repositories', () => ({
 const request = require('supertest');
 const { createApp } = require('../src/app');
 const { participants, cohorts } = require('../src/repositories');
+const { authHeader } = require('./helpers/auth');
 
 function app() {
   return createApp({ logger: () => {} });
 }
+
+// These routes are behind admin auth (Phase 3); send a valid token by default.
+const H = () => authHeader();
 
 const RAW_IDENTIFIER = 'victim@bank.example';
 const HASH = 'a'.repeat(64);
@@ -44,6 +48,13 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+describe('auth', () => {
+  test('rejects an unauthenticated request', async () => {
+    await request(app()).get('/api/participants').expect(401);
+    expect(participants.list).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/participants', () => {
   test('creates from a raw identifier, hashes via repo, never echoes it back', async () => {
     cohorts.findById.mockResolvedValue({ id: 'c1' });
@@ -51,6 +62,7 @@ describe('POST /api/participants', () => {
 
     const res = await request(app())
       .post('/api/participants')
+      .set(...H())
       .send({ identifier: RAW_IDENTIFIER, cohort_id: 'c1', role: 'Teller', department: 'Retail' })
       .expect(201);
 
@@ -72,6 +84,7 @@ describe('POST /api/participants', () => {
   test('rejects a missing identifier with 400', async () => {
     const res = await request(app())
       .post('/api/participants')
+      .set(...H())
       .send({ cohort_id: 'c1' })
       .expect(400);
     expect(res.body).toEqual({ error: 'identifier_required' });
@@ -82,6 +95,7 @@ describe('POST /api/participants', () => {
     cohorts.findById.mockResolvedValue(undefined);
     const res = await request(app())
       .post('/api/participants')
+      .set(...H())
       .send({ identifier: RAW_IDENTIFIER, cohort_id: 'nope' })
       .expect(400);
     expect(res.body).toEqual({ error: 'cohort_not_found' });
@@ -95,6 +109,7 @@ describe('POST /api/participants', () => {
     );
     const res = await request(app())
       .post('/api/participants')
+      .set(...H())
       .send({ identifier: RAW_IDENTIFIER, cohort_id: 'c1' })
       .expect(409);
     expect(res.body).toEqual({ error: 'participant_already_exists' });
@@ -107,7 +122,7 @@ describe('opt-out / opt-in flow', () => {
     participants.findById.mockResolvedValue(storedRow);
     participants.optOut.mockResolvedValue({ ...storedRow, opted_out: true });
 
-    const res = await request(app()).post('/api/participants/p1/opt-out').expect(200);
+    const res = await request(app()).post('/api/participants/p1/opt-out').set(...H()).expect(200);
 
     expect(res.body.data.opted_out).toBe(true);
     expect(participants.optOut).toHaveBeenCalledWith('p1');
@@ -117,7 +132,7 @@ describe('opt-out / opt-in flow', () => {
     participants.findById.mockResolvedValue({ ...storedRow, opted_out: true });
     participants.optIn.mockResolvedValue({ ...storedRow, opted_out: false });
 
-    const res = await request(app()).post('/api/participants/p1/opt-in').expect(200);
+    const res = await request(app()).post('/api/participants/p1/opt-in').set(...H()).expect(200);
 
     expect(res.body.data.opted_out).toBe(false);
     expect(participants.optIn).toHaveBeenCalledWith('p1');
@@ -125,7 +140,7 @@ describe('opt-out / opt-in flow', () => {
 
   test('opting out an unknown participant is a 404', async () => {
     participants.findById.mockResolvedValue(undefined);
-    await request(app()).post('/api/participants/none/opt-out').expect(404);
+    await request(app()).post('/api/participants/none/opt-out').set(...H()).expect(404);
     expect(participants.optOut).not.toHaveBeenCalled();
   });
 });
@@ -133,7 +148,7 @@ describe('opt-out / opt-in flow', () => {
 describe('GET /api/participants', () => {
   test('lists all participants', async () => {
     participants.list.mockResolvedValue([storedRow]);
-    const res = await request(app()).get('/api/participants').expect(200);
+    const res = await request(app()).get('/api/participants').set(...H()).expect(200);
     expect(res.body).toEqual({ data: [storedRow] });
   });
 
@@ -144,6 +159,7 @@ describe('GET /api/participants', () => {
 
     const res = await request(app())
       .get('/api/participants')
+      .set(...H())
       .query({ cohort_id: 'c1' })
       .expect(200);
 

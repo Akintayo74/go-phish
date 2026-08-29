@@ -55,10 +55,22 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–2 complete (scaffolding; data model & schema; consent & participant
-management). Next: **Phase 3 — admin auth + campaign CRUD**. See
+Phases 0–3 complete (scaffolding; data model & schema; consent & participant
+management; admin auth + campaign CRUD skeleton). Next: **Phase 4 — simulated
+landing page + dummy form + disclosure**. See
 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
+
+Admin console auth is JWT-based (Phase 3). Operators have one of two roles —
+`program_admin` (manages campaigns, cohorts, participants, operators) and
+`researcher` (read/evaluate only). Log in at `POST /api/auth/login`; the token
+is a `Bearer` credential for the `/api/*` routes. Campaigns live under
+`/api/campaigns` as a **CRUD skeleton only — no email is sent** (delivery is
+Phase 5); a campaign's `status` moves solely through the lifecycle transition
+endpoints (`/activate`, `/pause`, `/complete`, `/archive`). Admin passwords are
+stored as salted scrypt verifiers and are **never** returned in a response — the
+named test `backend/tests/admin.credentials.guardrail.test.js` pins this; do not
+weaken it. The admin UI shell lives at the frontend `#/admin` route.
 
 Consent is the load-bearing delivery gate (guardrail #3): the cohort/participant
 APIs live under `/api/cohorts` and `/api/participants`, and **all** future

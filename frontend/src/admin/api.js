@@ -1,0 +1,59 @@
+// Minimal admin API client (Phase 3). Wraps fetch with the bearer token and a
+// consistent error shape. No dependencies — the backend returns { error } on
+// failure and { data } / { token, admin } on success.
+
+const TOKEN_KEY = 'catsim.admin.token';
+
+export function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch (_e) {
+    return null;
+  }
+}
+
+export function setToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch (_e) {
+    /* storage unavailable — sessions just won't persist across reloads */
+  }
+}
+
+async function request(path, { method = 'GET', body, token = getToken() } = {}) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`/api${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch (_e) {
+    payload = null;
+  }
+
+  if (!res.ok) {
+    const err = new Error((payload && payload.error) || `request_failed_${res.status}`);
+    err.status = res.status;
+    err.code = payload && payload.error;
+    throw err;
+  }
+  return payload;
+}
+
+export const api = {
+  login: (email, password) =>
+    request('/auth/login', { method: 'POST', body: { email, password } }),
+  me: () => request('/auth/me'),
+  listCampaigns: () => request('/campaigns'),
+  createCampaign: (attrs) => request('/campaigns', { method: 'POST', body: attrs }),
+  campaignTransition: (id, action) =>
+    request(`/campaigns/${id}/${action}`, { method: 'POST' }),
+};

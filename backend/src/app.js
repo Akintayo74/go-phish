@@ -5,9 +5,13 @@
 
 const express = require('express');
 const { createRequestLogger } = require('./middleware/requestLogger');
+const { requireAuth } = require('./middleware/auth');
 const healthRoutes = require('./routes/health');
+const authRoutes = require('./routes/auth');
+const adminUserRoutes = require('./routes/adminUsers');
 const cohortRoutes = require('./routes/cohorts');
 const participantRoutes = require('./routes/participants');
+const campaignRoutes = require('./routes/campaigns');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -22,9 +26,19 @@ function createApp({ logger } = {}) {
 
   // Routes
   app.use('/', healthRoutes);
-  // Phase 2 — consent & participant management.
-  app.use('/api/cohorts', cohortRoutes);
-  app.use('/api/participants', participantRoutes);
+
+  // Phase 3 — admin auth. Login is public; everything else below requires a
+  // valid admin session (guardrail: the consent/participant data is sensitive
+  // and must not be reachable unauthenticated).
+  app.use('/api/auth', authRoutes);
+  app.use('/api/admin/users', adminUserRoutes);
+
+  // Phase 2 — consent & participant management. Now behind admin auth.
+  app.use('/api/cohorts', requireAuth, cohortRoutes);
+  app.use('/api/participants', requireAuth, participantRoutes);
+
+  // Phase 3 — campaign CRUD skeleton (no sending yet; delivery is Phase 5).
+  app.use('/api/campaigns', campaignRoutes);
 
   // 404
   app.use((req, res) => {
