@@ -55,10 +55,10 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–3 complete (scaffolding; data model & schema; consent & participant
-management; admin auth + campaign CRUD skeleton). Next: **Phase 4 — simulated
-landing page + dummy form + disclosure**. See
-[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
+Phases 0–4 complete (scaffolding; data model & schema; consent & participant
+management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
+form + disclosure). Next: **Phase 5 — interaction tracking + campaign delivery**.
+See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
 
 Admin console auth is JWT-based (Phase 3). Operators have one of two roles —
@@ -83,3 +83,14 @@ The schema enforces the credential-safety invariant: the `interactions` table
 has **no column** able to hold a submitted credential, checked by the named
 tests `backend/tests/schema.interactions.guardrail.test.js` (DB-free) and
 `backend/tests/schema.db.test.js` (against Postgres). Do not weaken them.
+
+The simulated landing page (Phase 4) is participant-facing and **unauthenticated**
+under `/sim` — reached via a tracked link, not the admin console. `GET /sim/:token`
+renders a **generic, fictional** login page (it must never impersonate a real
+brand; the placeholder is `SIM_BRAND_NAME`), `POST /sim/:token` **discards every
+posted value** and records only `submitted = true` before redirecting to
+`GET /sim/:token/disclosure`, which reveals the simulation (guardrail #4). The
+pages are server-rendered with **no client JavaScript**. The named test
+`backend/tests/sim.form.guardrail.test.js` pins that submitted field values are
+never persisted, logged, or echoed — do not weaken it. Delivery (minting the
+token and the tracked-link redirect into this page) is Phase 5.

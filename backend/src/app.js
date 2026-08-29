@@ -12,6 +12,7 @@ const adminUserRoutes = require('./routes/adminUsers');
 const cohortRoutes = require('./routes/cohorts');
 const participantRoutes = require('./routes/participants');
 const campaignRoutes = require('./routes/campaigns');
+const simRoutes = require('./routes/sim');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -39,6 +40,12 @@ function createApp({ logger } = {}) {
 
   // Phase 3 — campaign CRUD skeleton (no sending yet; delivery is Phase 5).
   app.use('/api/campaigns', campaignRoutes);
+
+  // Phase 4 — simulated landing page + dummy form + disclosure. Participant-
+  // facing and intentionally UNAUTHENTICATED (reached via a tracked link, not
+  // the admin console). The POST handler discards all posted values — see
+  // routes/sim.js and views/simPages.js (guardrail #1).
+  app.use('/sim', simRoutes);
 
   // 404
   app.use((req, res) => {

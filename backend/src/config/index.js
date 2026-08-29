@@ -32,6 +32,13 @@ const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-only-insecure-jwt-secret',
   // Admin session lifetime in seconds (default 8h).
   jwtExpiresInSeconds: parseInt(process.env.JWT_EXPIRES_IN_SECONDS || '28800', 10),
+  // Phase 4 — simulated landing page. A GENERIC, FICTIONAL brand shown on the
+  // dummy login page. It must never impersonate a real organization/brand; the
+  // default is an obvious placeholder. Override per deployment if desired.
+  simBrandName: process.env.SIM_BRAND_NAME || 'ACME Corp — Staff Portal',
+  // Where the disclosure page's "go to training" link points. Defaults to the
+  // site root; Phase 6+ wires this to the CAT learning site.
+  simTrainingUrl: process.env.SIM_TRAINING_URL || '/',
 };
 
 module.exports = Object.freeze(config);

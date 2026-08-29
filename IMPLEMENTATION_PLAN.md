@@ -91,7 +91,7 @@ design.
 | 1 | Data model & schema ✅ | 0 | **Opus 5** | Backbone + schema-level credential-safety invariant |
 | 2 | Consent & participant management | 1 | **Sonnet 5** | Well-specified CRUD (consent is load-bearing but spelled out) |
 | 3 | Admin auth + campaign CRUD skeleton ✅ | 1 | **Sonnet 5** | Standard JWT + CRUD |
-| 4 | Simulated landing page + dummy form + disclosure | 1 | **Opus 5** | **Highest-sensitivity piece**; discard-values + no-log invariant |
+| 4 | Simulated landing page + dummy form + disclosure ✅ | 1 | **Opus 5** | **Highest-sensitivity piece**; discard-values + no-log invariant |
 | 5 | Interaction tracking + campaign delivery | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
 | 6 | CAT platform — lesson modules + resource library | 0 | **Sonnet 5** | Content + React rendering |
 | 7 | CAT platform — quiz engine + knowledge checks | 6 | **Sonnet 5** | Scoring logic + UI |
@@ -126,7 +126,7 @@ design.
 - JWT admin login; role support (Program Admin, Researcher/Evaluator).
 - Campaign create/edit/pause (no sending yet); minimal admin UI shell.
 
-**Phase 4 — Simulated landing page + dummy form + disclosure** · *Opus 5* (Step 3)
+**Phase 4 — Simulated landing page + dummy form + disclosure** · *Opus 5* (Step 3) ✅
 - Generic, fictional login-style page (do **not** clone a real brand).
 - Form handler: sets `submitted = true`, **discards posted values**,
   redirects to disclosure page.

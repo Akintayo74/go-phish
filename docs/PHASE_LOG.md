@@ -221,3 +221,68 @@ full plan.
   through `consent.deliverableParticipants`.
 - Admin auth is now required on `/api/cohorts` and `/api/participants`; any new
   admin-facing API should mount behind `requireAuth` too.
+
+## Phase 4 — Simulated landing page + dummy form + disclosure ✅
+
+**Delivered** (highest-sensitivity component; built for independent review)
+- **Simulated sim routes (`src/routes/sim.js`, mounted `/sim`)** — participant-
+  facing and intentionally **unauthenticated** (reached via a tracked link, not
+  the admin console). Keyed by an opaque `:token` that maps to one
+  `interactions` row (the token is minted in Phase 5; Phase 4 records against it
+  when present). Three routes:
+  - `GET /sim/:token` — renders the generic, fictional sign-in page. Pure render,
+    **no DB write** and no token lookup, so it can't leak whether a token is
+    valid (marking `clicked` belongs to the Phase 5 tracked-link redirect).
+  - `POST /sim/:token` — the sensitive path. It **never reads `req.body`**; it
+    looks the interaction up by token and, only if found and not already marked,
+    calls `interactions.markSubmitted(id)` (no value argument — guardrail #1),
+    then **303-redirects to the disclosure page**. Posted form values are
+    discarded entirely.
+  - `GET /sim/:token/disclosure` — records `disclosed = true` (guardrail #4) and
+    renders the disclosure page. Shown **even for an unknown token**, so a
+    participant always learns it was a simulation.
+- **Server-rendered HTML views (`src/views/simPages.js`)** — deliberately
+  server-side (not React): the decoy form and the handler that discards its
+  values live in one auditable place, with **no client-side JavaScript and no
+  external resources**, so nothing in the participant's browser could stash or
+  exfiltrate a keystroke. The landing page is a **generic, fictional** corporate
+  sign-in (guardrail: no real-brand impersonation) driven by the configurable
+  `SIM_BRAND_NAME` placeholder. The disclosure page reveals the simulation,
+  states plainly that nothing typed was captured or stored, avoids punitive
+  framing, and links to awareness training (`SIM_TRAINING_URL`, wired to the CAT
+  site in Phase 6+). All interpolated values are HTML-escaped; the token is also
+  `encodeURIComponent`-ed into URLs.
+- **Config**: `simBrandName` / `simTrainingUrl` added to `src/config` and both
+  `.env.example`s. No new dependencies, no schema/migration changes (the
+  `interactions` table from Phase 1 already has exactly the behavioral flags this
+  phase sets, and — by design — nowhere to put a submitted value).
+
+**Named guardrail test**
+- `tests/sim.form.guardrail.test.js` — posts credential-shaped fields to the real
+  POST handler and proves three ways that submitted values go nowhere: (1) the
+  only interaction write is `markSubmitted(id)` with **no value argument** and no
+  secret reaches any repo method; (2) the request-logger sink never sees the
+  values; (3) the redirect response never echoes them. Also pins that an unknown
+  token still discards + discloses, and that an already-submitted interaction is
+  not re-marked. Do not weaken or delete.
+- `tests/sim.routes.test.js` — route contract: landing renders an HTML form
+  posting back to its token path, is public and stateless on render; disclosure
+  renders and marks `disclosed` (and still discloses for an unknown token,
+  idempotently); POST marks submitted and 303s to disclosure.
+
+**Verified**
+- `npm test` → **93 tests pass** (86 backend incl. the two new sim suites, 7
+  frontend). The DB-backed schema test skips gracefully with no Postgres, as in
+  prior phases. Standalone render check confirms the pages carry the expected
+  form, contain no `<script>` and no external resources, and that a hostile
+  token cannot break out of the markup.
+
+**Notes for next phase**
+- Phase 5 (interaction tracking + delivery, *Sonnet 5*) mints the per-participant
+  `tracking_token`, creates the `interactions` row, and builds the tracked-link
+  route that sets `opened`/`clicked` and then **redirects to `GET /sim/:token`**
+  (this phase's landing page). Targeting still routes only through
+  `consent.deliverableParticipants`; a campaign must be `active` to send.
+- The disclosure's training link (`SIM_TRAINING_URL`) currently defaults to `/`;
+  Phase 6 should point it at the CAT learning site, and Phase 8's enrollment loop
+  fires off `submitted = true` (or `clicked`, per campaign strictness).
