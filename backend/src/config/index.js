@@ -21,6 +21,11 @@ const config = {
   databaseUrl:
     process.env.DATABASE_URL ||
     'postgres://catsim:catsim@localhost:5432/catsim_dev',
+  // Secret key for HMAC-hashing participant contact identifiers (see
+  // src/lib/hash.js). The dev default keeps local/test hashing stable; a real
+  // deployment MUST override IDENTITY_HASH_SECRET with a strong random value.
+  identityHashSecret:
+    process.env.IDENTITY_HASH_SECRET || 'dev-only-insecure-identity-hash-secret',
 };
 
 module.exports = Object.freeze(config);

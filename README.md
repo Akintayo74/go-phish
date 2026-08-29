@@ -55,5 +55,12 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phase 0 (scaffolding & foundations) complete. Next: **Phase 1 — data model &
-schema**. See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md).
+Phases 0–1 complete (scaffolding; data model & schema). Next: **Phase 2 —
+consent & participant management**. See
+[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
+[`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
+
+The schema enforces the credential-safety invariant: the `interactions` table
+has **no column** able to hold a submitted credential, checked by the named
+tests `backend/tests/schema.interactions.guardrail.test.js` (DB-free) and
+`backend/tests/schema.db.test.js` (against Postgres). Do not weaken them.
