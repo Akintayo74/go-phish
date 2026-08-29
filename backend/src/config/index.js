@@ -39,6 +39,30 @@ const config = {
   // Where the disclosure page's "go to training" link points. Defaults to the
   // site root; Phase 6+ wires this to the CAT learning site.
   simTrainingUrl: process.env.SIM_TRAINING_URL || '/',
+
+  // Phase 5 — interaction tracking + campaign delivery.
+  //
+  // Public base URL the tracked links are built against. This is the origin a
+  // participant's email client will resolve, so it must be the externally
+  // reachable address of this service (not localhost) in a real deployment. The
+  // tracked link is `${publicBaseUrl}/t/<token>`.
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL || 'http://localhost:4000').replace(/\/+$/, ''),
+
+  // Email provider for simulated sends. 'console' is the default, hermetic
+  // transport used for local dev, tests, and CI: it records send metadata only
+  // (never the recipient address or body) and dispatches nothing over the
+  // network. A real deployment sets a transactional provider (e.g. 'sendgrid')
+  // and its credentials; see src/services/mailer.js for the pluggable seam.
+  mailProvider: process.env.MAIL_PROVIDER || 'console',
+  // From-address for simulated emails. Generic/fictional — must not impersonate
+  // a real organization (guardrail: no real-brand impersonation).
+  mailFrom: process.env.MAIL_FROM || 'IT Service Desk <no-reply@catsim.invalid>',
+  // Optional API key for a real provider. Never logged.
+  mailApiKey: process.env.MAIL_API_KEY || null,
+
+  // Outbound send throttle (messages/second) so a large cohort respects the
+  // provider's rate limits. 0 disables throttling (used in tests).
+  sendRatePerSecond: parseInt(process.env.SEND_RATE_PER_SECOND || '10', 10),
 };
 
 module.exports = Object.freeze(config);

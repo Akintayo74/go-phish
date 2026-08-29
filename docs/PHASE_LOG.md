@@ -286,3 +286,96 @@ full plan.
 - The disclosure's training link (`SIM_TRAINING_URL`) currently defaults to `/`;
   Phase 6 should point it at the CAT learning site, and Phase 8's enrollment loop
   fires off `submitted = true` (or `clicked`, per campaign strictness).
+
+## Phase 5 — Interaction tracking + campaign delivery ✅
+
+**Delivered**
+- **Token minting (`src/lib/token.js`)** — `generateToken()` produces a 256-bit
+  (32-byte) uniform-random, url-safe (base64url) opaque routing identifier. It is
+  not a credential and not derived from any participant data, so it leaks nothing
+  and can't be enumerated; the `tracking_token` UNIQUE constraint is the final
+  collision backstop. The interactions repo gained `createForTarget` (mints the
+  token + row for a `(campaign, participant)`) and `findByCampaignAndParticipant`
+  (so a re-send reuses the same token). **No schema change** — the Phase 1
+  `interactions` table already carries exactly the behavioral flags this phase
+  sets, and by design has nowhere to put a value.
+- **Tracking routes (`src/routes/track.js`, mounted `/t`)** — participant-facing,
+  **unauthenticated**, behavioral-flags-only:
+  - `GET /t/:token` — marks `clicked` (which implies `opened`), then **302-redirects
+    to the Phase 4 decoy page `GET /sim/:token`**. Redirects for any token, known
+    or not, so token validity never leaks.
+  - `GET /t/:token/pixel.gif` — optional open pixel: marks `opened` and returns a
+    1×1 transparent GIF with `no-store` headers, again for any token.
+- **Pluggable mailer (`src/services/mailer.js`)** — delivery depends only on a
+  small `send({ to, subject, html, text })` contract, so a real transactional
+  provider swaps in without touching delivery logic. Default provider is a
+  **hermetic `console`** transport (used by dev/CI/tests) that dispatches nothing
+  and records **metadata only** (a synthetic message id + status) — never the
+  recipient, subject, body, or API key (guardrail #2). An unknown provider fails
+  loudly (fail closed — no silent non-send).
+- **Email template (`src/views/emailTemplates.js`)** — `renderSimulationEmail`
+  returns `{ subject, html, text }` for a **generic/fictional** "verify your
+  account" lure (guardrail: no real-brand impersonation) whose only action is the
+  tracked click — **no form, no input, no attachment**. The open pixel is appended
+  only when a `pixelUrl` is passed. All interpolated values are HTML-escaped.
+- **Delivery service (`src/services/delivery.js`)** — GUARDRAIL-CRITICAL
+  orchestrator. `sendCampaign({ campaignId, recipients, resend })`:
+  - loads the campaign and **requires `status === 'active'`** (draft/paused/
+    completed/archived → 409; this also respects the pause/rollback guardrail);
+  - **data minimization (guardrail #6):** because only a keyed hash of each
+    address is stored, the admin supplies the raw roster transiently; each address
+    is hashed via `lib/hash` to match a stored participant, used **only** as the
+    mail `to`, and **never persisted**;
+  - **consent gate (guardrail #3):** every recipient is run through the single
+    `isDeliverable` predicate from `services/consent.js`; a non-consented or
+    opted-out target is never handed to the mailer;
+  - dedupes the roster, skips unknown / already-sent targets (reusing the existing
+    token on `resend`), throttles sends to `SEND_RATE_PER_SECOND`, and returns an
+    **aggregate summary only** (counts per outcome + named ineligibility reasons —
+    no per-individual result, guardrail #5).
+- **Send endpoint** — `POST /api/campaigns/:id/send` (Program Admin only;
+  researchers 403) validates `recipients` and forwards to the delivery service.
+  The raw roster in the body is excluded from logs by the global logger.
+- **Config**: `publicBaseUrl` (`PUBLIC_BASE_URL`, builds the `/t/<token>` link),
+  `mailProvider` / `mailFrom` / `mailApiKey`, and `sendRatePerSecond` added to
+  `src/config` and both `.env.example`s (the root file's Phase-5 placeholders were
+  reconciled to the implemented variable names). Frontend `api.js` gained a
+  forward-looking `sendCampaign` client method. **No new dependencies.**
+
+**Named guardrail test**
+- `tests/delivery.guardrail.test.js` — drives `sendCampaign` over a roster
+  spanning every deliverability case and proves: (1) **only** the granted,
+  opted-in target is emailed — opted-out and non-granted cohorts are never sent,
+  with the blocking reasons named; (2) an interaction row is created only for the
+  deliverable target, with routing fields only; (3) the raw recipient address is
+  **never written to any repository**. Do not weaken or delete.
+
+**Other tests** (all DB-free)
+- `tests/token.test.js` — url-safety, entropy/length, no collisions across 10k
+  draws.
+- `tests/mailer.test.js` — console provider records metadata only (recipient,
+  subject, body never reach the sink or console), fails closed on unknown provider.
+- `tests/emailTemplates.test.js` — embeds the tracked link, has no form/input,
+  appends the pixel only when asked, escapes hostile brand/token.
+- `tests/track.routes.test.js` — clicked→redirect and opened→GIF behavior; unknown
+  token leaks nothing; no double-marking.
+- `tests/delivery.service.test.js` — status gating (404/409/400), happy path with
+  the tracked link, roster dedupe, unknown/already-sent skips, `resend` reuse, and
+  a failed send not aborting the batch.
+- `tests/send.routes.test.js` — route wiring: 401/403 gating, `recipients`
+  validation, forwards to the service and returns its summary, surfaces a 409.
+
+**Verified**
+- `npm test` → **129 tests pass** (122 backend incl. the six new Phase-5 suites,
+  7 frontend). DB-backed schema test skips gracefully with no Postgres, as before.
+  App boots cleanly with the new `/t` routes mounted.
+
+**Notes for next phase**
+- Unattended **scheduled sending is intentionally not automated**: the system
+  never stores addresses (guardrail #6), so a background worker has no roster to
+  send. `campaigns.scheduled_send_at` remains an advisory window; the admin runs
+  the send (roster in hand) within it. A future scheduler would need an encrypted,
+  opt-in roster vault — out of MVP scope.
+- Phase 8's enrollment loop keys off the `interactions` flags this phase now
+  populates (`clicked` / `submitted`). Phase 9 analytics read the same flags for
+  the aggregate four-tier breakdown.
