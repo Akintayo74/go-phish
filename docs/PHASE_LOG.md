@@ -379,3 +379,86 @@ full plan.
 - Phase 8's enrollment loop keys off the `interactions` flags this phase now
   populates (`clicked` / `submitted`). Phase 9 analytics read the same flags for
   the aggregate four-tier breakdown.
+
+## Phase 6 — CAT platform: lesson modules + resource library ✅
+
+**Delivered**
+- **Published-only content repository (`src/repositories/learningModules.js`)** —
+  the CAT site is public, so the read helpers are the front door to what the
+  world can see. `listPublished({ category })` (metadata-only list, ordered by
+  category → order_index → title; the `body_markdown` column is deliberately not
+  selected for the index), `findPublishedBySlug(slug)` (one module with its body;
+  returns `undefined` for an unknown **or** unpublished slug, so a draft's
+  existence never leaks), and `listPublishedCategories()`. Every method pins
+  `published = true`. The inherited generic methods remain for future admin
+  authoring but are wired to no public endpoint.
+- **Public CAT content API (`src/routes/learn.js`, mounted `/api/learn`)** —
+  **UNAUTHENTICATED** and read-only (the learning site is a resource anyone may
+  read, explicitly not gated behind failing a sim). Three routes:
+  `GET /modules` (published index, optional `?category=`), `GET /modules/:slug`
+  (one published module with body; unknown/unpublished → indistinguishable
+  `404 module_not_found`), and `GET /library` (published modules grouped by
+  category for the resource-library index; uncategorized modules fall under a
+  stable `general` bucket). Records nothing about who reads what (guardrail #6).
+- **Frontend CAT learning site** — `#/learn` resource-library index (modules
+  grouped by humanized category label, each linking to `#/learn/<slug>`) and
+  `#/learn/<slug>` module view (rendered body + back link). A small
+  **dependency-free, script-safe Markdown renderer** (`src/learn/markdown.jsx`)
+  builds React elements directly (never `dangerouslySetInnerHTML`) and restricts
+  links to safe schemes (http/https/mailto/relative) — a `javascript:` URL in
+  content is dropped to plain text. `src/learn/api.js` is the token-less public
+  fetch client (unlike `admin/api.js`). Wired into `App.jsx` with a landing-page
+  link.
+- **Seed content** — `seeds/01_demo_data.js` expanded to the full Phase 6
+  curriculum: *What Phishing and Social Engineering Are*, *How to Recognize a
+  Phishing Attempt*, *Local Tactics: SIM Swap, Smishing, Vishing, Impersonation*
+  (Nigerian financial-sector context), *What To Do If You Clicked*, and
+  *Protecting Your Accounts*, grouped by category. One intentionally
+  **unpublished** draft module is seeded so the published-only API is exercised
+  by real data. The existing knowledge-check quiz still attaches to the phishing
+  module (its slug lookup was made resilient to ordering).
+- **Config** — `SIM_TRAINING_URL` default changed from `/` to `/#/learn` so the
+  Phase 4 disclosure page's "go to training" link now points at the CAT site
+  (both `.env.example`s updated).
+
+**Named guardrail test**
+- `tests/learn.published.guardrail.test.js` — **DB-free**. Drives each public
+  read path through a recording query stub and proves every one pins
+  `published: true` (so a draft can never leak), that a category filter is
+  *additional* (not a replacement), that an unpublished slug resolves to
+  `undefined`, and that the list view never selects `body_markdown`. Do not
+  weaken or delete.
+
+**Other tests**
+- `tests/learn.routes.test.js` (backend, DB-free): the three routes are public
+  (no auth), pass `?category=` through to the published-only accessor, return one
+  module with its body, surface an indistinguishable 404 for a draft/unknown
+  slug, and group the library by category (with the `general` fallback).
+- `src/learn/markdown.test.jsx` (frontend): headings, paragraphs, ordered/
+  unordered lists, blockquotes, inline bold/code/links; safe-scheme allow-list;
+  a `javascript:` link dropped to text; no `<script>` emitted from content;
+  empty/non-string input handled.
+- `src/learn/LearningSite.test.jsx` (frontend): `slugFromHash` parsing, the
+  library view rendering grouped modules with correct hrefs, the module view
+  rendering fetched markdown with a back link, and the not-found message for an
+  unknown/unpublished slug.
+
+**Verified**
+- `npm test` → **156 tests pass** (133 backend incl. the two new learn suites,
+  23 frontend incl. the two new learn suites); frontend production build OK.
+- Against a live Postgres 16: migrations apply (8), seeds run, the DB-backed
+  schema test runs (not skipped), and an end-to-end smoke of `/api/learn`
+  confirmed — library grouped correctly by category, the module index excludes
+  the draft and carries no `body_markdown`, a published slug returns its body, a
+  draft slug is a `404` (not leaked), and every endpoint answers with no auth.
+
+**Notes for next phase**
+- Phase 7 (quiz engine + knowledge checks, *Sonnet 5*) builds on the `quizzes`
+  table (already seeded with a per-module knowledge check as a JSON `questions`
+  array + `pass_threshold`). Add a public read API for a module's quiz (mounting
+  alongside `/api/learn`) and a React quiz component that scores against
+  `pass_threshold`; results feed the completion tracking Phase 8 keys off. Keep
+  the answer key server-side where scoring must not be trusted to the client.
+- The learning content lives in the DB (seeded). A future admin authoring UI can
+  reuse the generic `learningModules` repo methods (create/update/publish); the
+  public API already refuses to serve anything with `published = false`.

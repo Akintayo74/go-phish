@@ -55,12 +55,12 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–5 complete (scaffolding; data model & schema; consent & participant
+Phases 0–6 complete (scaffolding; data model & schema; consent & participant
 management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
-form + disclosure; interaction tracking + campaign delivery). Next: **Phase 6 —
-CAT platform: lesson modules + resource library**. See
-[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
-[`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
+form + disclosure; interaction tracking + campaign delivery; CAT platform —
+lesson modules + resource library). Next: **Phase 7 — CAT platform: quiz engine
++ knowledge checks**. See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
+and [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
 
 Admin console auth is JWT-based (Phase 3). Operators have one of two roles —
 `program_admin` (manages campaigns, cohorts, participants, operators) and
@@ -111,3 +111,17 @@ is an **aggregate summary only** (guardrail #5). The named test
 `backend/tests/delivery.guardrail.test.js` pins that non-consented/opted-out
 targets are never emailed and that no raw address reaches any table — do not
 weaken it.
+
+The CAT learning site (Phase 6) is the public, **unauthenticated** awareness-
+training platform — a resource anyone may read, explicitly **not** gated behind
+failing a simulation. Its read-only content API lives under `/api/learn`:
+`GET /api/learn/library` (published modules grouped by category for the resource
+library), `GET /api/learn/modules` (published index, metadata only, optional
+`?category=`), and `GET /api/learn/modules/:slug` (one published module with its
+markdown body). Only `published = true` modules are ever exposed — a draft is an
+indistinguishable 404 — and the API records nothing about who reads what
+(guardrail #6). The named test `backend/tests/learn.published.guardrail.test.js`
+pins that every public read path filters on `published = true`; do not weaken it.
+The site is served by the frontend `#/learn` route, which renders modules from a
+small dependency-free, script-safe Markdown renderer, and the Phase 4 disclosure
+page's training link now points here (`SIM_TRAINING_URL`, default `/#/learn`).

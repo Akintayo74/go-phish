@@ -93,7 +93,7 @@ design.
 | 3 | Admin auth + campaign CRUD skeleton ✅ | 1 | **Sonnet 5** | Standard JWT + CRUD |
 | 4 | Simulated landing page + dummy form + disclosure ✅ | 1 | **Opus 5** | **Highest-sensitivity piece**; discard-values + no-log invariant |
 | 5 | Interaction tracking + campaign delivery ✅ | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
-| 6 | CAT platform — lesson modules + resource library | 0 | **Sonnet 5** | Content + React rendering |
+| 6 | CAT platform — lesson modules + resource library ✅ | 0 | **Sonnet 5** | Content + React rendering |
 | 7 | CAT platform — quiz engine + knowledge checks | 6 | **Sonnet 5** | Scoring logic + UI |
 | 8 | Automatic enrollment loop | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
 | 9 | Analytics dashboard | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
@@ -141,7 +141,7 @@ design.
   manual "send now" first, scheduled window after. Respect provider rate
   limits.
 
-**Phase 6 — CAT platform: lesson modules + resource library** · *Sonnet 5* (Step 6, parallelizable)
+**Phase 6 — CAT platform: lesson modules + resource library** · *Sonnet 5* (Step 6, parallelizable) ✅
 - Public learning site (not gated behind failing a sim). Markdown → React
   modules: what phishing/social engineering is; Nigerian-context tactics (SIM
   swap, smishing, vishing, impersonation); "what to do if you clicked";

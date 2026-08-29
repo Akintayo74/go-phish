@@ -36,9 +36,10 @@ const config = {
   // dummy login page. It must never impersonate a real organization/brand; the
   // default is an obvious placeholder. Override per deployment if desired.
   simBrandName: process.env.SIM_BRAND_NAME || 'ACME Corp — Staff Portal',
-  // Where the disclosure page's "go to training" link points. Defaults to the
-  // site root; Phase 6+ wires this to the CAT learning site.
-  simTrainingUrl: process.env.SIM_TRAINING_URL || '/',
+  // Where the disclosure page's "go to training" link points. Phase 6 wires
+  // this to the public CAT learning site (the frontend hash route); override
+  // per deployment to an absolute URL if the CAT site is served elsewhere.
+  simTrainingUrl: process.env.SIM_TRAINING_URL || '/#/learn',
 
   // Phase 5 — interaction tracking + campaign delivery.
   //
