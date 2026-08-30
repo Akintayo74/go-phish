@@ -55,11 +55,11 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–7 complete (scaffolding; data model & schema; consent & participant
+Phases 0–8 complete (scaffolding; data model & schema; consent & participant
 management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
 form + disclosure; interaction tracking + campaign delivery; CAT platform —
 lesson modules + resource library; CAT platform — quiz engine + knowledge
-checks). Next: **Phase 8 — automatic enrollment loop**. See
+checks; automatic enrollment loop). Next: **Phase 9 — analytics dashboard**. See
 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
 
@@ -139,3 +139,28 @@ result). Only quizzes on `published = true` modules are exposed. The named test
 `backend/tests/quiz.answerkey.guardrail.test.js` pins that the answer key never
 leaves the server; do not weaken it. The quiz renders beneath each lesson on the
 frontend `#/learn/<slug>` route.
+
+The automatic enrollment loop (Phase 8) closes the loop from measured
+vulnerability to targeted education. When a participant meets a campaign's
+`enrollment_trigger` — a click (`GET /t/:token`) or, stricter, a simulated-form
+submit (`POST /sim/:token`) — `backend/src/services/enrollment.js` auto-creates a
+`training_assignment` (recording `assigned_reason`, idempotent per
+`(participant, module, campaign)`) linking them to the configured **published**
+module (`ENROLLMENT_MODULE_SLUG`, default `recognizing-phishing`). Enrollment is a
+**best-effort side effect** — it never interrupts the participant's redirect or
+the guaranteed disclosure (guardrail #4). Each assignment mints an opaque
+`completion_token`; the participant-facing, unauthenticated routes under
+`/api/enroll` use it so an enrolled participant can complete **their** assignment
+without a login (the CAT site is otherwise anonymous): `GET /api/enroll/:token`
+returns the assignment + assigned module (advancing `assigned → in_progress`),
+and `POST /api/enroll/:token/quiz/attempt` scores the knowledge check
+**server-side** (the answer key never leaves the server) and marks the assignment
+`completed` on a pass. A Program Admin sends the "you've been enrolled" email with
+`POST /api/campaigns/:id/notify-enrollments`; like delivery, the raw roster is
+supplied **transiently** and gated through `services/consent.js`, used only as the
+mail `to`, and **never persisted** (only `notified_at` is stamped) — the response
+is an aggregate summary only. The named test
+`backend/tests/enrollment.guardrail.test.js` pins that the notification never
+persists a raw address, that the summary is aggregate-only, and that an
+assignment holds no credential-shaped field; do not weaken it. The training
+landing renders on the frontend `#/enroll/<token>` route.

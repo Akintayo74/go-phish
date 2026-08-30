@@ -20,6 +20,7 @@ const { asyncHandler, badRequest, notFound, HttpError } = require('../lib/http')
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { ROLES } = require('../lib/roles');
 const { sendCampaign } = require('../services/delivery');
+const { notifyEnrollments } = require('../services/enrollment');
 
 const router = express.Router();
 
@@ -163,6 +164,28 @@ router.post(
       campaignId: req.params.id,
       recipients: body.recipients,
       resend: body.resend === true,
+    });
+    res.json({ data: summary });
+  })
+);
+
+// Notify auto-enrolled participants by email (Phase 8). Program Admin only. The
+// automatic enrollment loop creates the assignments off the participant's
+// click/submit; this endpoint sends the "you've been enrolled" email with the
+// tokened training link. Like `/send`, the admin supplies the raw addresses
+// transiently in the body (the system stores only hashes — guardrail #6); the
+// service hashes each to match a stored participant, gates every one through
+// consent (guardrail #3), never persists an address, and returns an AGGREGATE
+// summary only (guardrail #5). The body is excluded from logs by the global
+// logger (guardrail #2).
+router.post(
+  '/:id/notify-enrollments',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    if (!Array.isArray(body.recipients)) throw badRequest('recipients_required');
+    const summary = await notifyEnrollments({
+      campaignId: req.params.id,
+      recipients: body.recipients,
     });
     res.json({ data: summary });
   })

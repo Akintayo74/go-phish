@@ -544,3 +544,117 @@ full plan.
   is designed to feed that directly. If attempts ever need to be recorded, do it
   in `training_assignments`/completion tracking, **not** on `quizzes` (which by
   design stores no participant answers).
+
+## Phase 8 — Automatic enrollment loop ✅
+
+**Delivered**
+- **Enrollment service (`src/services/enrollment.js`)** — closes the loop from
+  "measured vulnerability" to "targeted education".
+  - `enrollFromInteraction(interaction)` is the trigger→assignment core: it loads
+    the interaction's campaign, checks its `enrollment_trigger` against the
+    interaction's flags (`meetsTrigger` — a submit always counts; a click-only
+    interaction enrolls only when the campaign's trigger is `clicked`), resolves
+    the configured **published** training module, and creates a
+    `training_assignment` with `assigned_reason` (`submitted_form` / `clicked_link`).
+    **Idempotent** — an existing assignment is reused (backed by the unique
+    `(participant, module, campaign)` constraint, with a race backstop that
+    re-reads on a unique violation).
+  - `safeEnrollFromInteraction` wraps it for the participant-facing routes:
+    enrollment is a **best-effort side effect** and must never throw back into
+    (and break) the click/submit response or the guaranteed disclosure
+    (guardrail #4).
+  - `nextResimulationDate(assignment)` is the optional **re-simulation scheduling
+    hook** — advisory only (returns a recommended Date once training is
+    completed; nothing is dispatched automatically, consistent with the system
+    storing no roster).
+- **Trigger wiring** — `GET /t/:token` (after `markClicked`) and `POST /sim/:token`
+  (after `markSubmitted`) now call `safeEnrollFromInteraction` on the updated
+  interaction. Enrollment failures are swallowed; the redirect/disclosure flow is
+  never interrupted.
+- **Completion via an opaque assignment token** — the CAT site is deliberately
+  anonymous (guardrail #6), so completing a *specific* assignment without a
+  participant login is done with a capability token. A migration
+  (`20260829120001`) adds `completion_token` (unique) + `notified_at` to
+  `training_assignments`; the new guardrail-aware repo
+  (`src/repositories/trainingAssignments.js`) mints the token on
+  `createForEnrollment` and exposes `findByToken` / `findExisting` /
+  `listByCampaignAndParticipant` / `markInProgress` / `markCompleted` /
+  `markNotified` / `toPublic` (strips `participant_id` and the token from the
+  participant-facing projection).
+- **Enroll routes (`src/routes/enroll.js`, mounted `/api/enroll`)** —
+  PARTICIPANT-FACING, UNAUTHENTICATED, keyed by the assignment token:
+  `GET /:token` returns the assignment + its assigned module (and advances
+  `assigned → in_progress` on first view; unknown token → `404
+  assignment_not_found`), and `POST /:token/quiz/attempt` scores the assigned
+  module's knowledge check **server-side** (reusing Phase 7's `scoreQuiz`, so the
+  answer key never leaves the server) and marks the assignment `completed` on a
+  pass. Answers are graded but never stored.
+- **Notification (`POST /api/campaigns/:id/notify-enrollments`, Program Admin
+  only)** — the "notify by email" step. GUARDRAIL-CRITICAL, mirroring Phase 5
+  delivery: the raw roster is supplied **transiently** in the body (guardrail #6
+  — the system stores only a keyed hash), each address is hashed to match a
+  stored participant, gated through the single `isDeliverable` consent predicate
+  (guardrail #3), used **only** as the mail `to`, and **never persisted** — only
+  `notified_at` is stamped. Sends the supportive, **non-punitive**
+  `renderEnrollmentEmail` (new template) with the tokened training link; returns
+  an **aggregate summary only** (guardrail #5).
+- **Config** — `ENROLLMENT_MODULE_SLUG` (default `recognizing-phishing`, a
+  seeded/published module carrying a quiz) and `RESIMULATION_INTERVAL_DAYS`
+  (default 90) added to `src/config` and both `.env.example`s.
+- **Frontend** — `#/enroll/<token>` view (`src/enroll/EnrollView.jsx` + `api.js`)
+  renders the assigned lesson + knowledge check; passing marks the assignment
+  completed via the enroll token. `Quiz.jsx` gained optional `submitAnswers` /
+  `onResult` props (backward compatible) so it can score against the enroll
+  endpoint. `admin/api.js` gained a `notifyEnrollments` client method. **No new
+  dependencies.**
+
+**Named guardrail test**
+- `tests/enrollment.guardrail.test.js` — pins three invariants: (1) the
+  notification never persists a raw address (the only mutating write is
+  `markNotified(id)`; neither the address nor its hash reaches any repo method,
+  even though the address IS used as the mail `to`); (2) the notify summary is
+  aggregate-only (counts, no per-address/per-individual field); (3) an
+  auto-created assignment carries only routing fields + `assigned_reason` — no
+  credential-shaped column (guardrail #1). Do not weaken or delete.
+
+**Other tests** (all DB-free)
+- `tests/enrollment.service.test.js` — trigger/reason logic, per-campaign
+  strictness, idempotency + race backstop, fail-safe on missing module/campaign,
+  `safeEnroll` swallows errors, the re-simulation hook, and the notify
+  summary/skips (unknown / not_deliverable / no_assignment / already_notified).
+- `tests/enroll.routes.test.js` — GET returns the assignment + module and starts
+  it, POST scores server-side and completes on a pass (no answer key echoed),
+  and the 404/400 edges; pins that the participant id and token never appear in a
+  response.
+- `tests/emailTemplates.test.js` — extended for `renderEnrollmentEmail`
+  (tokened link, non-punitive tone, no form/input, hostile-input escaping).
+- `src/enroll/EnrollView.test.jsx` (frontend) — token parsing, renders the
+  assigned lesson + supportive intro, invalid-link error, and completion via the
+  tokened enroll attempt endpoint (not the anonymous public one).
+
+**Verified**
+- `npm test` → **222 tests pass** (190 backend incl. the three new Phase-8
+  suites + the extended email suite, 32 frontend incl. the new EnrollView suite);
+  frontend production build OK.
+- Against a live Postgres 16: all 9 migrations apply, `\d training_assignments`
+  shows `completion_token` (unique) + `notified_at`, the DB-backed schema test
+  runs (not skipped), and an end-to-end smoke confirmed the full loop —
+  submit → auto-enroll (`submitted_form`, idempotent) → tokened
+  `assigned → in_progress` → quiz pass → `completed` → recommended re-sim date;
+  the notification sends (address used only as the mail `to`), stamps
+  `notified_at`, is idempotent (already_notified), skips
+  unknown/opted-out/completed targets, and **no raw address is ever written to
+  `training_assignments`**.
+
+**Notes for next phase**
+- Phase 9 (analytics dashboard, *Opus 5*) reads the `interactions` behavioral
+  flags for the aggregate four-tier breakdown and can now also report
+  training-completion rates from `training_assignments.status` — **grouped by
+  cohort/department only** (guardrail #5). The per-individual linkage in
+  `training_assignments` exists solely to drive this loop; it must **never**
+  surface in a management-facing view.
+- Unattended enrollment notification is intentionally **not automated** for the
+  same reason as Phase 5 sending: the system stores no roster (guardrail #6), so
+  an admin runs `notify-enrollments` with the roster in hand. The disclosure page
+  remains the guaranteed **immediate** in-band notice; the email is the
+  out-of-band nudge.

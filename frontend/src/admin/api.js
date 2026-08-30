@@ -61,4 +61,9 @@ export const api = {
   // an aggregate delivery summary.
   sendCampaign: (id, recipients, { resend = false } = {}) =>
     request(`/campaigns/${id}/send`, { method: 'POST', body: { recipients, resend } }),
+  // Phase 8 — notify auto-enrolled participants by email. Like `sendCampaign`,
+  // `recipients` is the raw roster held by the admin, sent transiently and never
+  // stored. Returns an aggregate notification summary.
+  notifyEnrollments: (id, recipients) =>
+    request(`/campaigns/${id}/notify-enrollments`, { method: 'POST', body: { recipients } }),
 };

@@ -64,6 +64,21 @@ const config = {
   // Outbound send throttle (messages/second) so a large cohort respects the
   // provider's rate limits. 0 disables throttling (used in tests).
   sendRatePerSecond: parseInt(process.env.SEND_RATE_PER_SECOND || '10', 10),
+
+  // Phase 8 — automatic enrollment loop.
+  //
+  // The learning module a participant is auto-assigned when they meet a
+  // campaign's enrollment trigger (click/submit). Defaults to the phishing-
+  // recognition module (seeded, published, and carrying a knowledge-check quiz
+  // that drives completion). Must be a PUBLISHED module slug or no assignment is
+  // created (the loop fails safe rather than assigning invisible content).
+  enrollmentModuleSlug: process.env.ENROLLMENT_MODULE_SLUG || 'recognizing-phishing',
+
+  // Recommended interval (days) before re-simulating a participant who has
+  // completed their assigned training. This is an advisory hook only — like the
+  // Phase 5 send window, nothing is dispatched automatically (the system stores
+  // no roster to send to); an admin acts on the recommended date.
+  resimulationIntervalDays: parseInt(process.env.RESIMULATION_INTERVAL_DAYS || '90', 10),
 };
 
 module.exports = Object.freeze(config);

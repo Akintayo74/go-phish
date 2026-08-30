@@ -59,9 +59,19 @@ async function findByPublishedModuleSlug(slug, trx) {
     .first();
 }
 
+// The quiz for a learning module by its id, returning the full keyed row for
+// server-side scoring. Used by the Phase 8 enrollment-completion route, where
+// authorization comes from the assignment's opaque completion token, not from
+// the public (published-only) content API.
+async function findByModuleId(learning_module_id, trx) {
+  if (!learning_module_id) return undefined;
+  return repo.findWhere({ learning_module_id }, trx);
+}
+
 module.exports = {
   ...repo,
   toPublicQuestion,
   toPublic,
   findByPublishedModuleSlug,
+  findByModuleId,
 };

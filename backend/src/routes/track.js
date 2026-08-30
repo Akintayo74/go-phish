@@ -22,6 +22,7 @@
 const express = require('express');
 const { interactions } = require('../repositories');
 const { asyncHandler } = require('../lib/http');
+const { safeEnrollFromInteraction } = require('../services/enrollment');
 
 const router = express.Router();
 
@@ -45,8 +46,13 @@ router.get(
   '/:token',
   asyncHandler(async (req, res) => {
     const interaction = await findInteraction(req.params.token);
-    if (interaction && !interaction.clicked) {
-      await interactions.markClicked(interaction.id);
+    if (interaction) {
+      const updated = interaction.clicked
+        ? interaction
+        : (await interactions.markClicked(interaction.id)) || interaction;
+      // Phase 8 — auto-enroll into training per the campaign's trigger. Best-
+      // effort: never let enrollment break the redirect (guardrail #4).
+      await safeEnrollFromInteraction(updated);
     }
     res.redirect(302, `${SIM_MOUNT}/${encodeURIComponent(req.params.token)}`);
   })

@@ -95,7 +95,7 @@ design.
 | 5 | Interaction tracking + campaign delivery ✅ | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
 | 6 | CAT platform — lesson modules + resource library ✅ | 0 | **Sonnet 5** | Content + React rendering |
 | 7 | CAT platform — quiz engine + knowledge checks ✅ | 6 | **Sonnet 5** | Scoring logic + UI |
-| 8 | Automatic enrollment loop | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
+| 8 | Automatic enrollment loop ✅ | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
 | 9 | Analytics dashboard | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
 | 10 | Phase II / re-test support | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
 | 11 | E2E testing, security & log audit, pre-launch hardening | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
@@ -151,7 +151,7 @@ design.
 - Quiz component with pass/fail scoring against `Quiz.pass_threshold`;
   per-module knowledge checks; results feed completion tracking.
 
-**Phase 8 — Automatic enrollment loop** · *Sonnet 5* (Step 7)
+**Phase 8 — Automatic enrollment loop** · *Sonnet 5* (Step 7) ✅
 - On `submitted = true` (or `clicked`, per configured strictness) auto-create
   a `TrainingAssignment` with `assigned_reason`; notify participant by email;
   completion tracking; optional re-simulation scheduling hook.

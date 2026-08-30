@@ -38,6 +38,7 @@ const config = require('../config');
 const { interactions } = require('../repositories');
 const { asyncHandler } = require('../lib/http');
 const { renderLandingPage, renderDisclosurePage } = require('../views/simPages');
+const { safeEnrollFromInteraction } = require('../services/enrollment');
 
 const router = express.Router();
 
@@ -82,9 +83,15 @@ router.post(
   '/:token',
   asyncHandler(async (req, res) => {
     const interaction = await findInteraction(req.params.token);
-    if (interaction && !interaction.submitted) {
-      // No value argument — there is nothing to persist beyond the boolean.
-      await interactions.markSubmitted(interaction.id);
+    if (interaction) {
+      const updated = interaction.submitted
+        ? interaction
+        : // No value argument — there is nothing to persist beyond the boolean.
+          (await interactions.markSubmitted(interaction.id)) || interaction;
+      // Phase 8 — auto-enroll into training. A submit always meets the trigger
+      // (whether the campaign enrolls on click or submit). Best-effort: never
+      // let enrollment break the redirect to disclosure (guardrail #4).
+      await safeEnrollFromInteraction(updated);
     }
     // 303 → force a GET on the disclosure page after the POST (and never echo
     // the submitted body back to the client).

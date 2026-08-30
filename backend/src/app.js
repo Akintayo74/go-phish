@@ -15,6 +15,7 @@ const campaignRoutes = require('./routes/campaigns');
 const simRoutes = require('./routes/sim');
 const trackRoutes = require('./routes/track');
 const learnRoutes = require('./routes/learn');
+const enrollRoutes = require('./routes/enroll');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -48,6 +49,13 @@ function createApp({ logger } = {}) {
   // published lesson modules + the resource library; read-only, records nothing
   // about who reads what (see routes/learn.js).
   app.use('/api/learn', learnRoutes);
+
+  // Phase 8 — enrollment / training completion. Participant-facing and
+  // UNAUTHENTICATED, reached from the enrollment email by an opaque assignment
+  // token: GET returns the assignment + assigned module (marking it in_progress),
+  // and the quiz-attempt POST scores server-side and marks completion on a pass.
+  // See routes/enroll.js.
+  app.use('/api/enroll', enrollRoutes);
 
   // Phase 5 — interaction tracking. Participant-facing, UNAUTHENTICATED: the
   // tracked link `/t/:token` flips clicked/opened and redirects to the Phase 4
