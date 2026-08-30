@@ -255,28 +255,72 @@ exports.seed = async function seed(knex) {
     ])
     .returning('*');
 
-  const phishingModule = modules.find((m) => m.slug === 'recognizing-phishing');
+  // Per-module knowledge checks (Phase 7). Each quiz's `answer_index` is the
+  // private key used for server-side scoring — the public API strips it before
+  // the questions ever reach a browser.
+  const bySlug = (slug) => modules.find((m) => m.slug === slug);
 
-  await knex('quizzes').insert({
-    learning_module_id: phishingModule.id,
-    title: 'Phishing Recognition — Knowledge Check',
-    pass_threshold: 70,
-    questions: JSON.stringify([
-      {
-        prompt: 'A message urges you to "verify your account now" via a link. What is the safest action?',
-        choices: [
-          'Click the link and log in quickly',
-          'Reply with your credentials',
-          'Navigate to the official site yourself and check',
-          'Forward it to a colleague to click',
-        ],
-        answer_index: 2,
-      },
-      {
-        prompt: 'Your bank will legitimately ask you for which of these by SMS?',
-        choices: ['Your OTP', 'Your PIN', 'Your password', 'None of these'],
-        answer_index: 3,
-      },
-    ]),
-  });
+  await knex('quizzes').insert([
+    {
+      learning_module_id: bySlug('recognizing-phishing').id,
+      title: 'Phishing Recognition — Knowledge Check',
+      pass_threshold: 70,
+      questions: JSON.stringify([
+        {
+          prompt:
+            'A message urges you to "verify your account now" via a link. What is the safest action?',
+          choices: [
+            'Click the link and log in quickly',
+            'Reply with your credentials',
+            'Navigate to the official site yourself and check',
+            'Forward it to a colleague to click',
+          ],
+          answer_index: 2,
+        },
+        {
+          prompt: 'Your bank will legitimately ask you for which of these by SMS?',
+          choices: ['Your OTP', 'Your PIN', 'Your password', 'None of these'],
+          answer_index: 3,
+        },
+      ]),
+    },
+    {
+      learning_module_id: bySlug('what-to-do-if-you-clicked').id,
+      title: 'If You Clicked — Knowledge Check',
+      pass_threshold: 70,
+      questions: JSON.stringify([
+        {
+          prompt:
+            'You entered your password on a page you now suspect was fake. What should you do first?',
+          choices: [
+            'Wait and see if anything happens',
+            'Change that password immediately (from a device you trust)',
+            'Delete the email so no one finds out',
+            'Reply to the message asking if it was real',
+          ],
+          answer_index: 1,
+        },
+        {
+          prompt: 'Why report a suspected phishing click to your security team quickly?',
+          choices: [
+            'So you can be blamed',
+            'It is required to keep your job',
+            'Fast reporting lets them contain damage and warn others',
+            'There is no reason to report it',
+          ],
+          answer_index: 2,
+        },
+        {
+          prompt: 'Reusing that same password elsewhere means…',
+          choices: [
+            'Nothing — each site is separate',
+            'Only that one site is at risk',
+            'Every account sharing it is now at risk and should be changed',
+            'It becomes stronger over time',
+          ],
+          answer_index: 2,
+        },
+      ]),
+    },
+  ]);
 };

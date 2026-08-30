@@ -94,7 +94,7 @@ design.
 | 4 | Simulated landing page + dummy form + disclosure ✅ | 1 | **Opus 5** | **Highest-sensitivity piece**; discard-values + no-log invariant |
 | 5 | Interaction tracking + campaign delivery ✅ | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
 | 6 | CAT platform — lesson modules + resource library ✅ | 0 | **Sonnet 5** | Content + React rendering |
-| 7 | CAT platform — quiz engine + knowledge checks | 6 | **Sonnet 5** | Scoring logic + UI |
+| 7 | CAT platform — quiz engine + knowledge checks ✅ | 6 | **Sonnet 5** | Scoring logic + UI |
 | 8 | Automatic enrollment loop | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
 | 9 | Analytics dashboard | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
 | 10 | Phase II / re-test support | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
@@ -147,7 +147,7 @@ design.
   swap, smishing, vishing, impersonation); "what to do if you clicked";
   "how to recognize a phishing attempt." Resource library for ongoing reference.
 
-**Phase 7 — CAT platform: quiz engine + knowledge checks** · *Sonnet 5* (Step 6 cont.)
+**Phase 7 — CAT platform: quiz engine + knowledge checks** · *Sonnet 5* (Step 6 cont.) ✅
 - Quiz component with pass/fail scoring against `Quiz.pass_threshold`;
   per-module knowledge checks; results feed completion tracking.
 

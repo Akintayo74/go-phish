@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { learnApi } from './api.js';
 import { Markdown } from './markdown.jsx';
+import Quiz from './Quiz.jsx';
 
 // Public CAT learning site (Phase 6). Two views, selected by hash:
 //   #/learn          → the resource library (modules grouped by category)
@@ -63,9 +64,14 @@ function ModuleView({ slug }) {
       )}
 
       {state.status === 'ready' && state.module && (
-        <article data-testid="module">
-          <Markdown>{state.module.body_markdown}</Markdown>
-        </article>
+        <>
+          <article data-testid="module">
+            <Markdown>{state.module.body_markdown}</Markdown>
+          </article>
+          {/* The module's knowledge check (Phase 7). Renders nothing if the
+              module has no quiz. */}
+          <Quiz slug={slug} />
+        </>
       )}
     </section>
   );
