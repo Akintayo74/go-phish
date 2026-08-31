@@ -658,3 +658,100 @@ full plan.
   an admin runs `notify-enrollments` with the roster in hand. The disclosure page
   remains the guaranteed **immediate** in-band notice; the email is the
   out-of-band nudge.
+
+## Phase 9 — Analytics dashboard ✅
+
+**Delivered**
+- **Aggregate-only analytics service (`src/services/analytics.js`)** —
+  GUARDRAIL-CRITICAL (guardrail #5). Turns the raw behavioral flags into
+  management/researcher-facing aggregates and **nothing per-individual**. Two
+  invariants make that safe: (1) no identifier is ever emitted — the service
+  consumes only a group dimension + flags/status and returns counts/rates; (2)
+  **small-group suppression (k-anonymity)** — a cohort/department group below
+  `ANALYTICS_MIN_GROUP_SIZE` (default 5, min 2) is never reported with its own
+  counts (a group of one would out that person); such groups collapse into an
+  outcome-free `suppressed: { groups, participants }` summary, and a whole
+  campaign below the threshold has its totals suppressed too. The **four
+  susceptibility tiers** (no action / opened only / clicked only /
+  clicked+submitted) are mutually exclusive by priority (submitted > clicked >
+  opened > none), so they always partition a group's total regardless of flag
+  monotonicity. Exposes `campaignAnalytics` (grouped report: open/click/submission
+  rates + four-tier breakdown + training-completion rollup), `comparison`
+  (phase-over-phase side-by-side per-campaign metrics + rate deltas vs the
+  baseline; a suppressed side yields no delta), and `anonymizedExport` + `toCsv`
+  (an RFC-4180-quoted CSV of the per-group breakdown, reported groups only). All
+  aggregation math (tiers, rates, grouping, suppression) is pure JS in one
+  auditable, unit-testable place.
+- **Identifier-free data access (`src/repositories/analytics.js`)** — two thin
+  queries (`interactionFlagsByCampaign`, `assignmentStatusByCampaign`) that select
+  **only** the group dimension (cohort name / department) + the flags/status —
+  never a participant id, hash, or address. Because no identifying column crosses
+  this boundary, a per-person analytics leak is impossible by construction. One
+  row per interaction/assignment is pulled and aggregated in the service (MVP
+  scale by design; org-wide scale is explicitly deferred). **No migration** — the
+  phase reads the existing Phase 1/5/8 tables; no schema change.
+- **Analytics API (`src/routes/analytics.js`, mounted `/api/analytics`)** —
+  read-only and requires a valid admin session but is **NOT** Program-Admin-gated:
+  either role may read (analysis is the Researcher/Evaluator's core job).
+  `GET /campaigns/:id[?group_by=cohort|department]` (the grouped report; invalid
+  `group_by` → `400`, unknown campaign → `404`),
+  `GET /campaigns/:id/export[?group_by=…&format=csv|json]` (anonymized CSV with a
+  download disposition, or JSON), and
+  `GET /compare?campaign_ids=<id>,<id>,…` (phase-over-phase; empty list → `400`).
+- **Config** — `ANALYTICS_MIN_GROUP_SIZE` (default 5, floored at 2) added to
+  `src/config` and both `.env.example`s.
+- **Frontend** — `src/admin/CampaignAnalytics.jsx`, an aggregate-only panel
+  toggled per campaign from the admin console (`AdminConsole.jsx`, visible to
+  researchers too): overall rates, the four-tier breakdown table grouped by
+  cohort/department (a toggle re-fetches), the training-completion line, and a
+  **visible suppression note** ("N groups / N participants hidden to protect
+  individual privacy") rather than silently dropping small groups. `admin/api.js`
+  gained `campaignAnalytics` / `compareCampaigns` / `analyticsExportPath`. **No
+  new dependencies.**
+
+**Named guardrail test**
+- `tests/analytics.guardrail.test.js` — feeds the service rows that deliberately
+  carry participant ids / contact hashes / a raw address and proves (1) none of
+  them appear anywhere in the emitted report; (2) a single-person cohort is never
+  reported — it survives only as an outcome-free suppressed count, and the
+  reported group's counts/rates are correct aggregates that partition its total;
+  (3) a below-threshold campaign has its totals suppressed too. Do not weaken or
+  delete.
+
+**Other tests** (all DB-free)
+- `tests/analytics.service.test.js` — rate rounding (zero-denominator = 0), tier
+  classification (priority + non-monotonic robustness), `summarizeFlags` /
+  `summarizeAssignments`, grouping by cohort vs department with suppression +
+  stable sort + the `(unspecified)` fallback, the campaign report shape (404 /
+  invalid-`group_by`), comparison deltas + a suppressed side yielding no delta,
+  and the export + CSV quoting.
+- `tests/analytics.routes.test.js` — repositories mocked so the real service runs
+  through the routes: auth gating (401; a researcher **may** read), `group_by`
+  validation, the 404, the CSV export (content-type + download disposition +
+  body) and JSON export, and the compare endpoint (comma-separated ids + the
+  empty-list 400). Asserts no `participant_id` / `email_or_phone_hash` appears in
+  a payload.
+- `src/admin/CampaignAnalytics.test.jsx` + an added `AdminConsole.test.jsx` case
+  — renders rates/tiers/training, surfaces the suppression note, re-fetches on the
+  department toggle, shows the campaign-too-small message, handles a load error,
+  and toggles the panel from the console.
+
+**Verified**
+- `npm test` → **259 tests pass** (221 backend incl. the three new analytics
+  suites, 38 frontend incl. the new CampaignAnalytics suite + the console toggle
+  case); frontend production build OK. The DB-backed schema test skips gracefully
+  with no Postgres, as in prior phases. The two new repository queries were
+  validated to compile to correct Postgres SQL against the existing schema
+  columns (no live DB in this environment; no migration was added).
+
+**Notes for next phase**
+- Phase 10 (Phase II / re-test support, *Sonnet 5*) builds the campaign **clone**
+  (new phase against the same/updated cohort) and the Phase I vs Phase II
+  side-by-side view. The math it needs already exists: `analytics.comparison`
+  returns per-campaign aggregate metrics + baseline deltas, and `campaigns` carry
+  a free-form `phase_label` — Phase 10 wires cloning + a comparison UI on top,
+  keeping everything aggregate-only.
+- Analytics is aggregate-only **by construction** (the repo never fetches an
+  identifier); any new metric must keep that property and route group counts
+  through the same small-group suppression, never bypassing it for a "just this
+  one" per-person number.

@@ -96,7 +96,7 @@ design.
 | 6 | CAT platform — lesson modules + resource library ✅ | 0 | **Sonnet 5** | Content + React rendering |
 | 7 | CAT platform — quiz engine + knowledge checks ✅ | 6 | **Sonnet 5** | Scoring logic + UI |
 | 8 | Automatic enrollment loop ✅ | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
-| 9 | Analytics dashboard | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
+| 9 | Analytics dashboard ✅ | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
 | 10 | Phase II / re-test support | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
 | 11 | E2E testing, security & log audit, pre-launch hardening | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
 
@@ -156,7 +156,7 @@ design.
   a `TrainingAssignment` with `assigned_reason`; notify participant by email;
   completion tracking; optional re-simulation scheduling hook.
 
-**Phase 9 — Analytics dashboard** · *Opus 5* (Step 8)
+**Phase 9 — Analytics dashboard** · *Opus 5* (Step 8) ✅
 - Aggregate-only queries: click rate, submission rate, four-tier breakdown
   (no action / opened only / clicked only / clicked+submitted), grouped by
   cohort/department. Phase-over-phase comparison. Anonymized export.

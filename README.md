@@ -55,11 +55,12 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–8 complete (scaffolding; data model & schema; consent & participant
+Phases 0–9 complete (scaffolding; data model & schema; consent & participant
 management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
 form + disclosure; interaction tracking + campaign delivery; CAT platform —
 lesson modules + resource library; CAT platform — quiz engine + knowledge
-checks; automatic enrollment loop). Next: **Phase 9 — analytics dashboard**. See
+checks; automatic enrollment loop; analytics dashboard). Next: **Phase 10 —
+Phase II / re-test support**. See
 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
 
@@ -164,3 +165,25 @@ is an aggregate summary only. The named test
 persists a raw address, that the summary is aggregate-only, and that an
 assignment holds no credential-shaped field; do not weaken it. The training
 landing renders on the frontend `#/enroll/<token>` route.
+
+The analytics dashboard (Phase 9) is the aggregate-only reporting surface
+(guardrail #5). Its read-only API lives under `/api/analytics` and is open to
+**any** authenticated operator (researchers included — analysis is their job),
+not just Program Admins: `GET /api/analytics/campaigns/:id` returns the
+susceptibility report — overall open/click/submission rates plus the
+**four-tier breakdown** (no action / opened only / clicked only /
+clicked+submitted) and training-completion rollup — **grouped by cohort or
+department** (`?group_by=cohort|department`); `GET /api/analytics/compare?campaign_ids=a,b`
+is the **phase-over-phase** side-by-side (per-campaign rates + deltas against the
+baseline); and `GET /api/analytics/campaigns/:id/export` streams an **anonymized**
+CSV (or `?format=json`) of the per-group breakdown. Every number is an aggregate:
+`backend/src/services/analytics.js` fetches only the group dimension + behavioral
+flags (never a participant id/hash — see `backend/src/repositories/analytics.js`)
+and applies **small-group suppression** (k-anonymity, `ANALYTICS_MIN_GROUP_SIZE`,
+default 5) so a cohort/department smaller than the threshold is never reported
+with its own counts — it collapses into an outcome-free "N groups / N
+participants hidden" summary, and a whole campaign below the threshold has its
+totals suppressed too. The named test
+`backend/tests/analytics.guardrail.test.js` pins that no identifier reaches the
+output and that small groups are suppressed; do not weaken it. The dashboard
+renders per campaign in the admin console (`#/admin`).

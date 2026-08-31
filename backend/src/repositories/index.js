@@ -12,6 +12,7 @@ const adminUsers = require('./adminUsers');
 const learningModules = require('./learningModules');
 const quizzes = require('./quizzes');
 const trainingAssignments = require('./trainingAssignments');
+const analytics = require('./analytics');
 
 module.exports = {
   cohorts,
@@ -22,4 +23,5 @@ module.exports = {
   learningModules,
   quizzes,
   trainingAssignments,
+  analytics,
 };

@@ -16,6 +16,7 @@ const simRoutes = require('./routes/sim');
 const trackRoutes = require('./routes/track');
 const learnRoutes = require('./routes/learn');
 const enrollRoutes = require('./routes/enroll');
+const analyticsRoutes = require('./routes/analytics');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -43,6 +44,13 @@ function createApp({ logger } = {}) {
 
   // Phase 3 — campaign CRUD skeleton (no sending yet; delivery is Phase 5).
   app.use('/api/campaigns', campaignRoutes);
+
+  // Phase 9 — analytics dashboard. Read-only, admin-authenticated (either role —
+  // analytics is the Researcher/Evaluator's job). Every response is an AGGREGATE
+  // over a cohort/department group with small-group suppression applied by the
+  // service (guardrail #5): no per-individual result is reachable here. The
+  // router applies requireAuth itself (like campaigns).
+  app.use('/api/analytics', analyticsRoutes);
 
   // Phase 6 — CAT platform content. PUBLIC and UNAUTHENTICATED: the learning
   // site is a resource anyone may read (not gated behind failing a sim). Serves

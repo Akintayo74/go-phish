@@ -16,6 +16,7 @@ vi.mock('./api.js', () => {
       listCampaigns: vi.fn(),
       createCampaign: vi.fn(),
       campaignTransition: vi.fn(),
+      campaignAnalytics: vi.fn(),
     },
   };
 });
@@ -83,6 +84,57 @@ describe('AdminConsole', () => {
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('active'));
     expect(api.campaignTransition).toHaveBeenCalledWith('k1', 'activate');
+  });
+
+  it('toggles the aggregate analytics panel for a campaign', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'admin@example.test', role: 'program_admin' },
+    });
+    api.listCampaigns.mockResolvedValue({
+      data: [{ id: 'k1', name: 'Baseline', status: 'active' }],
+    });
+    api.campaignAnalytics.mockResolvedValue({
+      data: {
+        campaign: { id: 'k1', name: 'Baseline', phase_label: null, status: 'active' },
+        group_by: 'cohort',
+        min_group_size: 5,
+        interactions: {
+          total_participants: 0,
+          totals_suppressed: false,
+          totals: {
+            total: 0,
+            opened: 0,
+            clicked: 0,
+            submitted: 0,
+            open_rate: 0,
+            click_rate: 0,
+            submission_rate: 0,
+            tiers: { no_action: 0, opened_only: 0, clicked_only: 0, clicked_submitted: 0 },
+          },
+          groups: [],
+          suppressed: { groups: 0, participants: 0 },
+        },
+        training: {
+          total_participants: 0,
+          totals_suppressed: false,
+          totals: null,
+          groups: [],
+          suppressed: { groups: 0, participants: 0 },
+        },
+      },
+    });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /^analytics$/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign-analytics')).toBeInTheDocument());
+    expect(api.campaignAnalytics).toHaveBeenCalledWith('k1', 'cohort');
   });
 
   it('a researcher gets a read-only view (no create form, no controls)', async () => {

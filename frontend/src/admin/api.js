@@ -66,4 +66,22 @@ export const api = {
   // stored. Returns an aggregate notification summary.
   notifyEnrollments: (id, recipients) =>
     request(`/campaigns/${id}/notify-enrollments`, { method: 'POST', body: { recipients } }),
+
+  // Phase 9 — analytics dashboard. Aggregate-only (guardrail #5): every response
+  // is grouped by cohort/department with small groups suppressed server-side —
+  // there is no per-individual result to fetch. `groupBy` is 'cohort' (default)
+  // or 'department'.
+  campaignAnalytics: (id, groupBy = 'cohort') =>
+    request(`/analytics/campaigns/${id}?group_by=${encodeURIComponent(groupBy)}`),
+  // Phase-over-phase comparison of several campaigns (side-by-side rates + deltas).
+  compareCampaigns: (ids) =>
+    request(`/analytics/compare?campaign_ids=${ids.map(encodeURIComponent).join(',')}`),
 };
+
+// The URL of the anonymized CSV export (a plain GET the browser can download).
+// Aggregate-only, small groups suppressed — no per-individual data. The bearer
+// token is a header credential, so a raw <a href> download can't carry it; the
+// UI fetches with auth and saves the blob instead (see CampaignAnalytics).
+export function analyticsExportPath(id, groupBy = 'cohort') {
+  return `/api/analytics/campaigns/${id}/export?group_by=${encodeURIComponent(groupBy)}&format=csv`;
+}

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
+import CampaignAnalytics from './CampaignAnalytics.jsx';
 
 // Minimal admin console shell (Phase 3). Login → campaign list with create and
 // lifecycle controls. Delivery is Phase 5; nothing here sends anything. Write
@@ -117,7 +118,7 @@ function CreateCampaign({ onCreated }) {
   );
 }
 
-function CampaignList({ campaigns, canWrite, onTransition }) {
+function CampaignList({ campaigns, canWrite, onTransition, analyticsFor, onToggleAnalytics }) {
   if (campaigns.length === 0) return <p>No campaigns yet.</p>;
   return (
     <ul>
@@ -131,6 +132,15 @@ function CampaignList({ campaigns, canWrite, onTransition }) {
                 {label}
               </button>
             ))}
+          {/* Analytics is aggregate-only and open to any operator (researchers
+              included), so the toggle is shown regardless of write access. */}
+          <button
+            aria-expanded={analyticsFor === c.id}
+            onClick={() => onToggleAnalytics(c.id)}
+          >
+            {analyticsFor === c.id ? 'Hide analytics' : 'Analytics'}
+          </button>
+          {analyticsFor === c.id && <CampaignAnalytics campaignId={c.id} />}
         </li>
       ))}
     </ul>
@@ -142,6 +152,7 @@ export default function AdminConsole() {
   const [campaigns, setCampaigns] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(Boolean(getToken()));
+  const [analyticsFor, setAnalyticsFor] = useState(null);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -189,6 +200,11 @@ export default function AdminConsole() {
     setToken(null);
     setAdmin(null);
     setCampaigns([]);
+    setAnalyticsFor(null);
+  }
+
+  function toggleAnalytics(id) {
+    setAnalyticsFor((current) => (current === id ? null : id));
   }
 
   async function handleTransition(id, action) {
@@ -216,7 +232,13 @@ export default function AdminConsole() {
       </header>
       {error && <p role="alert">{error}</p>}
       {canWrite && <CreateCampaign onCreated={refresh} />}
-      <CampaignList campaigns={campaigns} canWrite={canWrite} onTransition={handleTransition} />
+      <CampaignList
+        campaigns={campaigns}
+        canWrite={canWrite}
+        onTransition={handleTransition}
+        analyticsFor={analyticsFor}
+        onToggleAnalytics={toggleAnalytics}
+      />
     </section>
   );
 }

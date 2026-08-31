@@ -79,6 +79,17 @@ const config = {
   // Phase 5 send window, nothing is dispatched automatically (the system stores
   // no roster to send to); an admin acts on the recommended date.
   resimulationIntervalDays: parseInt(process.env.RESIMULATION_INTERVAL_DAYS || '90', 10),
+
+  // Phase 9 — analytics dashboard.
+  //
+  // Small-group suppression threshold (k-anonymity) enforcing guardrail #5
+  // (aggregate-only, no per-individual result). Any cohort/department group with
+  // FEWER than this many participants is never reported with its own counts — a
+  // group of one would otherwise turn an "aggregate" into that person's result.
+  // Such groups are collapsed into a single suppressed summary. The whole-campaign
+  // total is itself treated as a group: a campaign with fewer than this many
+  // targets has all its numbers suppressed. Must be >= 2; defaults to 5.
+  analyticsMinGroupSize: Math.max(2, parseInt(process.env.ANALYTICS_MIN_GROUP_SIZE || '5', 10)),
 };
 
 module.exports = Object.freeze(config);
