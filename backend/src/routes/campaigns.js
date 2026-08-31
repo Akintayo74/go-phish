@@ -55,6 +55,25 @@ function pickWritable(body = {}) {
   return attrs;
 }
 
+// Fields a clone may override (Phase 10). A clone carries the source's
+// definition by default; the admin may retitle it and relabel the phase. Note
+// `scheduled_send_at` is intentionally NOT overridable here — a re-test is
+// scheduled fresh through the normal edit/schedule flow, never inherited.
+function pickCloneOverrides(body = {}) {
+  const attrs = {};
+  if (body.name !== undefined) attrs.name = String(body.name).trim();
+  if (body.description !== undefined) {
+    attrs.description = body.description === null ? null : String(body.description);
+  }
+  if (body.phase_label !== undefined) {
+    attrs.phase_label = body.phase_label === null ? null : String(body.phase_label);
+  }
+  if (body.enrollment_trigger !== undefined) {
+    attrs.enrollment_trigger = body.enrollment_trigger;
+  }
+  return attrs;
+}
+
 function validateEnrollmentTrigger(value) {
   if (value !== undefined && !ENROLLMENT_TRIGGERS.includes(value)) {
     throw badRequest('invalid_enrollment_trigger');
@@ -99,6 +118,18 @@ router.get(
   })
 );
 
+// Phase lineage (Phase 10): this campaign's whole re-test family — the original
+// phase plus every clone descended from it — ordered oldest-first. Feeds the
+// side-by-side Phase I vs Phase II comparison view. Read-only, any operator.
+router.get(
+  '/:id/phases',
+  asyncHandler(async (req, res) => {
+    await loadCampaign(req.params.id);
+    const rows = await campaigns.lineage(req.params.id);
+    res.json({ data: rows });
+  })
+);
+
 // --- Writes: Program Admin only -------------------------------------------
 router.use(requireRole(ROLES.PROGRAM_ADMIN));
 
@@ -111,6 +142,24 @@ router.post(
     if (!attrs.name) throw badRequest('name_required');
     validateEnrollmentTrigger(attrs.enrollment_trigger);
     const row = await campaigns.create(attrs);
+    res.status(201).json({ data: row });
+  })
+);
+
+// Clone a campaign as a new phase / re-test (Phase 10). Program Admin only.
+// The new campaign is born 'draft' (its status is never inherited), carries a
+// `cloned_from_campaign_id` link back to the source, and copies only the
+// campaign definition — never the source's interactions or assignments, which
+// belong to the phase that produced them. The admin may retitle it and relabel
+// the phase (e.g. 'Phase I' → 'Phase II'); anything not overridden is inherited.
+router.post(
+  '/:id/clone',
+  asyncHandler(async (req, res) => {
+    await loadCampaign(req.params.id);
+    const overrides = pickCloneOverrides(req.body);
+    if (overrides.name !== undefined && !overrides.name) throw badRequest('name_required');
+    validateEnrollmentTrigger(overrides.enrollment_trigger);
+    const row = await campaigns.clone(req.params.id, overrides);
     res.status(201).json({ data: row });
   })
 );

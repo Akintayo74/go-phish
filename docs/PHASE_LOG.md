@@ -755,3 +755,85 @@ full plan.
   identifier); any new metric must keep that property and route group counts
   through the same small-group suppression, never bypassing it for a "just this
   one" per-person number.
+
+## Phase 10 — Phase II / re-test support ✅
+
+**Delivered**
+- **Lineage column (`migrations/20260831120001_add_cloned_from_to_campaigns.js`)**
+  — adds `campaigns.cloned_from_campaign_id`: a nullable, self-referential FK
+  (`ON DELETE SET NULL`, indexed) recording which campaign a clone was derived
+  from (null for an original phase). Set only at clone time, never editable. A
+  clone copies the campaign **definition** only — never its interactions or
+  assignments, which belong to the phase that produced them — so a Phase II
+  campaign starts clean against the same/updated cohort. `SET NULL` keeps a clone
+  (and the research record) intact if an ancestor draft is ever deleted.
+- **Clone + lineage repo helpers (`src/repositories/campaigns.js`)** — `clone`
+  derives a new **draft** campaign from a source (status is never inherited — the
+  schema default applies; `scheduled_send_at` is not copied); `lineage` returns a
+  campaign's whole re-test family (root + all descendants) oldest-first. The core
+  logic is two **pure, unit-tested** functions: `cloneAttrs(source, overrides)`
+  (copies definition, stamps the lineage link, omits status/schedule) and
+  `buildLineage(rows, id)` (walks up to the family root, BFS down over the
+  subtree, orders by `created_at` then id, and is cycle-safe). Family assembly is
+  in JS (MVP scale) mirroring the analytics repo's approach.
+- **Campaign API additions (`src/routes/campaigns.js`)** —
+  `POST /api/campaigns/:id/clone` (**Program Admin only**): clones the source,
+  born 'draft', with optional overrides of name / phase_label / description /
+  enrollment_trigger (`scheduled_send_at` is deliberately not overridable — a
+  re-test is scheduled fresh); rejects an empty name (`400 name_required`) and an
+  invalid `enrollment_trigger` (`400`), unknown source → `404`.
+  `GET /api/campaigns/:id/phases` (**any operator**, read-only): the phase family
+  for the side-by-side view; unknown campaign → `404`. The comparison math itself
+  is the existing aggregate-only `analytics.comparison` / `/api/analytics/compare`
+  from Phase 9 — Phase 10 adds no new analytics surface, so the aggregate-only
+  guardrail (#5) is untouched.
+- **Frontend** — `admin/api.js` gains `cloneCampaign` and `campaignPhases`.
+  `AdminConsole.jsx` gains a **"Clone as new phase"** control (Program Admin only;
+  a small form pre-filled with the source name + a phase-label field) and a
+  **"Compare phases"** toggle (open to researchers too). New
+  `admin/PhaseComparison.jsx` loads the family via `campaignPhases`, feeds the ids
+  to `compareCampaigns`, and renders each phase side by side — open/click/submission
+  rates plus the **percentage-point change vs the baseline** phase for click and
+  submission (a falling submission rate = the training loop working). It inherits
+  the backend's k-anonymity suppression: a phase with too few targets shows
+  "Too few targets to report" and contributes no delta. A one-phase family shows a
+  prompt to clone. **No new dependencies.**
+- **Seed** — the demo now seeds a **Phase II clone** of the baseline campaign
+  (`cloned_from_campaign_id` → Phase I) so the lineage + comparison view has real
+  data locally.
+
+**Tests** (all DB-free)
+- `tests/campaigns.repo.test.js` (new) — the pure helpers: `cloneAttrs` copies the
+  definition, **never** status/schedule/id, always stamps the lineage link,
+  applies overrides, honors a null override, and falls back to null for a missing
+  field; `buildLineage` reconstructs the whole family from any member, orders
+  oldest-first, never mixes in an unrelated campaign, returns a lone campaign as
+  itself, returns `[]` for an unknown id, orders siblings by created_at/id, and
+  terminates on a hand-edited cycle.
+- `tests/campaigns.routes.test.js` (extended) — clone: 201 with overrides / with
+  no overrides / never accepting a `status` override / empty-name 400 /
+  invalid-trigger 400 / unknown 404 / **researcher 403**; phases: family returned,
+  researcher may read, unknown 404, unauthenticated 401.
+- `src/admin/PhaseComparison.test.jsx` (new) + extended `AdminConsole.test.jsx` —
+  loads + compares side by side, marks a falling metric's direction, the
+  single-phase clone prompt, a suppressed phase hiding its metrics, a load error;
+  console-level: cloning refreshes the list, the comparison toggle wires the two
+  calls, and a researcher can compare but has **no** clone control.
+
+**Verified**
+- `npm test` → **291 tests pass** (246 backend incl. the new
+  `campaigns.repo` suite + the extended campaign-route suite; 45 frontend incl.
+  the new `PhaseComparison` suite + two new console cases). Frontend production
+  build OK. The DB-backed schema test skips gracefully with no Postgres, as in
+  prior phases; the new migration is a straightforward `alterTable` validated
+  against the existing schema (no live DB in this environment).
+
+**Notes for next phase**
+- Phase 11 (E2E, security & log audit, pre-launch hardening, *Opus 5*) is the
+  final phase: Playwright E2E of the full loop, the whole-system credential-leak
+  audit (re-run the "no persisted field values" test against the integrated
+  system), email load test, and the campaign **pause/rollback** mechanism (the
+  `paused` status + transitions already exist from Phase 3).
+- Cloning copies **definition only** — if a future phase adds campaign-scoped
+  config, decide deliberately whether it belongs in `cloneAttrs`; never let a
+  clone inherit behavioral data (interactions/assignments) or a live status.

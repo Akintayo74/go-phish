@@ -56,6 +56,15 @@ export const api = {
   createCampaign: (attrs) => request('/campaigns', { method: 'POST', body: attrs }),
   campaignTransition: (id, action) =>
     request(`/campaigns/${id}/${action}`, { method: 'POST' }),
+  // Phase 10 — clone a campaign as a new re-test phase. The new campaign is born
+  // 'draft', links back to the source, and copies only the definition (never the
+  // source's interactions). `attrs` may override name / phase_label / description
+  // / enrollment_trigger; omit to inherit the source.
+  cloneCampaign: (id, attrs = {}) =>
+    request(`/campaigns/${id}/clone`, { method: 'POST', body: attrs }),
+  // Phase 10 — the campaign's whole re-test family (original + all clones),
+  // oldest-first, for the Phase I vs Phase II side-by-side comparison view.
+  campaignPhases: (id) => request(`/campaigns/${id}/phases`),
   // Phase 5 — manual "send now". `recipients` is the raw address roster held by
   // the admin; it is sent transiently and never stored by the backend. Returns
   // an aggregate delivery summary.

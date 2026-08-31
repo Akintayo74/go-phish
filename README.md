@@ -55,12 +55,13 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–9 complete (scaffolding; data model & schema; consent & participant
+Phases 0–10 complete (scaffolding; data model & schema; consent & participant
 management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
 form + disclosure; interaction tracking + campaign delivery; CAT platform —
 lesson modules + resource library; CAT platform — quiz engine + knowledge
-checks; automatic enrollment loop; analytics dashboard). Next: **Phase 10 —
-Phase II / re-test support**. See
+checks; automatic enrollment loop; analytics dashboard; Phase II / re-test
+support). Next: **Phase 11 — E2E testing, security & log audit, pre-launch
+hardening**. See
 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
 [`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
 
@@ -187,3 +188,17 @@ totals suppressed too. The named test
 `backend/tests/analytics.guardrail.test.js` pins that no identifier reaches the
 output and that small groups are suppressed; do not weaken it. The dashboard
 renders per campaign in the admin console (`#/admin`).
+
+Phase II / re-test support (Phase 10) closes the research loop. A Program Admin
+can **clone** a campaign as a new phase (`POST /api/campaigns/:id/clone`): the
+clone is born `draft`, links back to its source via `cloned_from_campaign_id`,
+and copies only the campaign **definition** — never the source's status,
+schedule, or behavioral data — so a re-test starts clean against the same or an
+updated cohort. `GET /api/campaigns/:id/phases` returns a campaign's whole
+re-test family (original + all clones, oldest-first). The admin console adds a
+"Clone as new phase" control and a **"Compare phases"** panel that lays the phases
+side by side with the percentage-point change in click/submission rate against
+the baseline phase (a falling submission rate is the training loop working). The
+comparison reuses the aggregate-only analytics compare endpoint, so it inherits
+the same k-anonymity suppression — a phase with too few targets contributes no
+per-individual data.

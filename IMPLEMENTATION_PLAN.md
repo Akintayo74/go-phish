@@ -97,7 +97,7 @@ design.
 | 7 | CAT platform — quiz engine + knowledge checks ✅ | 6 | **Sonnet 5** | Scoring logic + UI |
 | 8 | Automatic enrollment loop ✅ | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
 | 9 | Analytics dashboard ✅ | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
-| 10 | Phase II / re-test support | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
+| 10 | Phase II / re-test support ✅ | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
 | 11 | E2E testing, security & log audit, pre-launch hardening | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
 
 ### Phase detail
@@ -162,9 +162,17 @@ design.
   cohort/department. Phase-over-phase comparison. Anonymized export.
 - **Guardrail:** no per-individual result in any management-facing view.
 
-**Phase 10 — Phase II / re-test support** · *Sonnet 5* (Step 9)
+**Phase 10 — Phase II / re-test support** · *Sonnet 5* (Step 9) ✅
 - Clone a campaign as a new phase against same/updated cohort; Phase I vs
   Phase II side-by-side comparison view (the core research payoff).
+- Implemented: `cloned_from_campaign_id` lineage column (self-FK, ON DELETE SET
+  NULL); `POST /api/campaigns/:id/clone` (Program Admin) copies only the
+  definition — never the source's status, schedule, or behavioral data — and is
+  born 'draft'; `GET /api/campaigns/:id/phases` returns the whole re-test family
+  oldest-first; the existing aggregate-only `/analytics/compare` (Phase 9) drives
+  the side-by-side deltas. Admin console gains a "Clone as new phase" control and
+  a "Compare phases" panel (`PhaseComparison`), the latter aggregate-only and
+  open to researchers.
 
 **Phase 11 — E2E testing, security & log audit, pre-launch hardening** · *Opus 5*
 - Playwright E2E of the full loop: send → click → submit → auto-enroll →

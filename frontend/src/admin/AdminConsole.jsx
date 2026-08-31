@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
 import CampaignAnalytics from './CampaignAnalytics.jsx';
+import PhaseComparison from './PhaseComparison.jsx';
 
 // Minimal admin console shell (Phase 3). Login → campaign list with create and
 // lifecycle controls. Delivery is Phase 5; nothing here sends anything. Write
@@ -118,13 +119,86 @@ function CreateCampaign({ onCreated }) {
   );
 }
 
-function CampaignList({ campaigns, canWrite, onTransition, analyticsFor, onToggleAnalytics }) {
+// Clone-as-new-phase control (Phase 10). Program Admin only. Reveals a small
+// form pre-filled with the source name; the admin sets a phase label for the
+// re-test (e.g. "Phase II") and creates a fresh draft campaign linked back to
+// this one. Sending happens later through the normal delivery flow.
+function CloneCampaign({ campaign, onCloned }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(campaign.name);
+  const [phaseLabel, setPhaseLabel] = useState('');
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.cloneCampaign(campaign.id, {
+        name: name.trim() || undefined,
+        phase_label: phaseLabel.trim() || undefined,
+      });
+      setOpen(false);
+      setPhaseLabel('');
+      onCloned();
+    } catch (err) {
+      setError(err.code || 'clone_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}>
+        Clone as new phase
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} aria-label="clone campaign">
+      <input
+        aria-label="clone name"
+        placeholder="New campaign name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <input
+        aria-label="clone phase label"
+        placeholder="Phase label (e.g. Phase II)"
+        value={phaseLabel}
+        onChange={(e) => setPhaseLabel(e.target.value)}
+      />
+      {error && <p role="alert">{error}</p>}
+      <button type="submit" disabled={busy}>
+        {busy ? 'Cloning…' : 'Create clone'}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} disabled={busy}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
+function CampaignList({
+  campaigns,
+  canWrite,
+  onTransition,
+  onCloned,
+  analyticsFor,
+  onToggleAnalytics,
+  comparisonFor,
+  onToggleComparison,
+}) {
   if (campaigns.length === 0) return <p>No campaigns yet.</p>;
   return (
     <ul>
       {campaigns.map((c) => (
         <li key={c.id} data-testid="campaign">
           <strong>{c.name}</strong>{' '}
+          {c.phase_label && <em data-testid="phase-label">{c.phase_label}</em>}{' '}
           <span data-testid="status">[{c.status}]</span>
           {canWrite &&
             (NEXT_ACTIONS[c.status] || []).map(([action, label]) => (
@@ -132,15 +206,24 @@ function CampaignList({ campaigns, canWrite, onTransition, analyticsFor, onToggl
                 {label}
               </button>
             ))}
-          {/* Analytics is aggregate-only and open to any operator (researchers
-              included), so the toggle is shown regardless of write access. */}
+          {/* Analytics and phase comparison are aggregate-only and open to any
+              operator (researchers included), so their toggles are shown
+              regardless of write access. Cloning is a write, so it is gated. */}
           <button
             aria-expanded={analyticsFor === c.id}
             onClick={() => onToggleAnalytics(c.id)}
           >
             {analyticsFor === c.id ? 'Hide analytics' : 'Analytics'}
           </button>
+          <button
+            aria-expanded={comparisonFor === c.id}
+            onClick={() => onToggleComparison(c.id)}
+          >
+            {comparisonFor === c.id ? 'Hide phases' : 'Compare phases'}
+          </button>
+          {canWrite && <CloneCampaign campaign={c} onCloned={onCloned} />}
           {analyticsFor === c.id && <CampaignAnalytics campaignId={c.id} />}
+          {comparisonFor === c.id && <PhaseComparison campaignId={c.id} />}
         </li>
       ))}
     </ul>
@@ -153,6 +236,7 @@ export default function AdminConsole() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(Boolean(getToken()));
   const [analyticsFor, setAnalyticsFor] = useState(null);
+  const [comparisonFor, setComparisonFor] = useState(null);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -201,10 +285,15 @@ export default function AdminConsole() {
     setAdmin(null);
     setCampaigns([]);
     setAnalyticsFor(null);
+    setComparisonFor(null);
   }
 
   function toggleAnalytics(id) {
     setAnalyticsFor((current) => (current === id ? null : id));
+  }
+
+  function toggleComparison(id) {
+    setComparisonFor((current) => (current === id ? null : id));
   }
 
   async function handleTransition(id, action) {
@@ -236,8 +325,11 @@ export default function AdminConsole() {
         campaigns={campaigns}
         canWrite={canWrite}
         onTransition={handleTransition}
+        onCloned={refresh}
         analyticsFor={analyticsFor}
         onToggleAnalytics={toggleAnalytics}
+        comparisonFor={comparisonFor}
+        onToggleComparison={toggleComparison}
       />
     </section>
   );
