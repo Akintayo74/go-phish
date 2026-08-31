@@ -55,15 +55,15 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–10 complete (scaffolding; data model & schema; consent & participant
-management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
-form + disclosure; interaction tracking + campaign delivery; CAT platform —
-lesson modules + resource library; CAT platform — quiz engine + knowledge
-checks; automatic enrollment loop; analytics dashboard; Phase II / re-test
-support). Next: **Phase 11 — E2E testing, security & log audit, pre-launch
-hardening**. See
-[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
-[`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
+**Phases 0–11 complete** — the full MVP (scaffolding; data model & schema;
+consent & participant management; admin auth + campaign CRUD skeleton; simulated
+landing page + dummy form + disclosure; interaction tracking + campaign delivery;
+CAT platform — lesson modules + resource library; CAT platform — quiz engine +
+knowledge checks; automatic enrollment loop; analytics dashboard; Phase II /
+re-test support; **E2E testing, security & log audit, pre-launch hardening**). See
+[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md),
+[`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md), and the launch gate
+[`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md).
 
 Admin console auth is JWT-based (Phase 3). Operators have one of two roles —
 `program_admin` (manages campaigns, cohorts, participants, operators) and
@@ -202,3 +202,26 @@ the baseline phase (a falling submission rate is the training loop working). The
 comparison reuses the aggregate-only analytics compare endpoint, so it inherits
 the same k-anonymity suppression — a phase with too few targets contributes no
 per-individual data.
+
+E2E testing, security audit & pre-launch hardening (Phase 11) is the final phase.
+It adds a **campaign pause/rollback** mechanism: while a campaign is not `active`,
+its tracked links record **no new behavioral flags** and trigger **no new
+enrollment** — but the participant still reaches the decoy (token validity never
+leaks) and the disclosure page still renders (guardrail #4). The gate lives in
+`backend/src/services/campaignState.js` (fail-open, since it governs behavioral
+flags — not a legal-safety guardrail — so a transient lookup never drops a live
+campaign's data) and is enforced again, defense-in-depth, in the enrollment
+service; the named test `backend/tests/pause.rollback.guardrail.test.js` pins it.
+The phase re-verifies the whole system: `backend/tests/system.credential.audit.test.js`
+drives the integrated loop and proves no submitted value or raw address escapes
+through logs, console/traces, response bodies + headers, or the persisted store;
+`backend/tests/system.loop.integration.test.js` runs the full send → click →
+submit → disclosure → auto-enroll → training-completion loop over HTTP (DB-free,
+via an in-memory repository layer); and `backend/tests/delivery.loadtest.test.js`
+load-tests email sending over a 1,000-recipient roster with the provider throttle
+honored. A Playwright browser E2E of the same loop (plus a pause/rollback check)
+lives under [`e2e/`](./e2e) — it runs against a live stack (`npm run test:e2e`) and
+is intentionally outside the root workspaces so `npm test` stays DB/browser-free.
+The Dev Guide's pre-launch checklist is walked in
+[`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md), mapping every
+guardrail to where it is enforced and the named test that pins it.

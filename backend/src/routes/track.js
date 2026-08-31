@@ -23,6 +23,7 @@ const express = require('express');
 const { interactions } = require('../repositories');
 const { asyncHandler } = require('../lib/http');
 const { safeEnrollFromInteraction } = require('../services/enrollment');
+const { isRecordingHalted } = require('../services/campaignState');
 
 const router = express.Router();
 
@@ -46,7 +47,11 @@ router.get(
   '/:token',
   asyncHandler(async (req, res) => {
     const interaction = await findInteraction(req.params.token);
-    if (interaction) {
+    // Phase 11 — pause/rollback: a paused (non-active) campaign records no new
+    // flags and enrolls no one, but the participant-facing redirect below is
+    // UNCHANGED so token validity never leaks and the decoy/disclosure flow is
+    // preserved.
+    if (interaction && !(await isRecordingHalted(interaction))) {
       const updated = interaction.clicked
         ? interaction
         : (await interactions.markClicked(interaction.id)) || interaction;
@@ -64,7 +69,7 @@ router.get(
   '/:token/pixel.gif',
   asyncHandler(async (req, res) => {
     const interaction = await findInteraction(req.params.token);
-    if (interaction && !interaction.opened) {
+    if (interaction && !interaction.opened && !(await isRecordingHalted(interaction))) {
       await interactions.markOpened(interaction.id);
     }
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');

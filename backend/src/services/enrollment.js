@@ -77,6 +77,16 @@ async function enrollFromInteraction(
   const campaign = await repos.campaigns.findById(interaction.campaign_id);
   if (!campaign) return { enrolled: false, reason: 'campaign_not_found' };
 
+  // Phase 11 — pause/rollback defense-in-depth. A paused (non-active) campaign
+  // enrolls no one new. The participant-facing routes already gate on this
+  // (services/campaignState.js); enforcing it here too means no enrollment can
+  // be created for a halted campaign even via a direct call. Fail-open on an
+  // absent status so a partial campaign row (or an older caller that omits it)
+  // is not silently dropped — the route gate remains the primary control.
+  if (campaign.status && campaign.status !== 'active') {
+    return { enrolled: false, reason: 'campaign_not_active' };
+  }
+
   if (!meetsTrigger(campaign, interaction)) {
     return { enrolled: false, reason: 'trigger_not_met' };
   }

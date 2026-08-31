@@ -98,7 +98,7 @@ design.
 | 8 | Automatic enrollment loop ✅ | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
 | 9 | Analytics dashboard ✅ | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
 | 10 | Phase II / re-test support ✅ | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
-| 11 | E2E testing, security & log audit, pre-launch hardening | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
+| 11 | E2E testing, security & log audit, pre-launch hardening ✅ | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
 
 ### Phase detail
 
@@ -174,13 +174,20 @@ design.
   a "Compare phases" panel (`PhaseComparison`), the latter aggregate-only and
   open to researchers.
 
-**Phase 11 — E2E testing, security & log audit, pre-launch hardening** · *Opus 5*
+**Phase 11 — E2E testing, security & log audit, pre-launch hardening** · *Opus 5* ✅
 - Playwright E2E of the full loop: send → click → submit → auto-enroll →
-  training completion.
-- Whole-system credential-leak audit (logs, headers, query strings, traces);
-  the named "no persisted field values" test re-run against the integrated
-  system; load-test email sending; campaign **pause/rollback** mechanism.
-- Walk the Dev Guide's Pre-Launch Checklist.
+  training completion (`/e2e`, runs against a live stack; kept out of the root
+  workspaces so `npm test` stays DB/browser-free). A DB-free integrated
+  full-loop test (`system.loop.integration`) runs the same loop over HTTP in CI.
+- Whole-system credential-leak audit (`system.credential.audit`): drives the
+  integrated system and proves no submitted value or raw address escapes through
+  logs, console/traces, response bodies + headers, or the persisted store — the
+  "no persisted field values" invariant re-run end to end. Email **load test**
+  (`delivery.loadtest`, 1k roster + throttle). Campaign **pause/rollback**
+  mechanism (`services/campaignState.js` + `pause.rollback.guardrail`): a paused
+  campaign records no new flags and enrolls no one, while the decoy redirect and
+  disclosure are preserved.
+- Walked the Dev Guide's Pre-Launch Checklist — `docs/PRE_LAUNCH_CHECKLIST.md`.
 
 ---
 

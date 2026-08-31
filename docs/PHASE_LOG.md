@@ -837,3 +837,88 @@ full plan.
 - Cloning copies **definition only** — if a future phase adds campaign-scoped
   config, decide deliberately whether it belongs in `cloneAttrs`; never let a
   clone inherit behavioral data (interactions/assignments) or a live status.
+
+## Phase 11 — E2E testing, security & log audit, pre-launch hardening ✅
+
+**Delivered** (final phase; whole-system audit + hardening)
+- **Campaign pause/rollback (`src/services/campaignState.js`)** — makes pausing a
+  campaign a real rollback. `isCampaignLive(campaign)` is the pure predicate
+  (`status === 'active'`); `isRecordingHalted(interaction)` decides whether NEW
+  behavioral data / enrollment for an interaction must stop because its campaign
+  is paused. Wired into the participant-facing routes: `GET /t/:token` (click +
+  pixel) and `POST /sim/:token` (submit) and the disclosure marker now record a
+  new flag / enroll **only when the campaign is active**. Crucially, the
+  participant-facing behavior is **unchanged** by a pause — the tracked link still
+  redirects to the decoy (token validity never leaks) and the disclosure page
+  still renders (guardrail #4); pausing stops DATA COLLECTION and the enrollment
+  side effect, never the guarantees owed to a participant. The gate is **fail-open**
+  by deliberate design and only here: it governs behavioral flags, not a
+  legal-safety guardrail (those all fail closed), so a transient campaign-lookup
+  hiccup never silently drops a legitimately-active campaign's measurement — a
+  halt is applied only when the campaign is present AND positively reports a
+  non-active status. Enforced again **defense-in-depth** in
+  `services/enrollment.js` (`enrollFromInteraction` returns `campaign_not_active`
+  for a paused campaign; fail-open on an absent status so existing callers/fixtures
+  are unaffected). Sending was already gated on `active` (Phase 5). **No schema
+  change** — pause/rollback rides the existing lifecycle state machine (Phase 3).
+- **In-memory repository layer for whole-system tests
+  (`tests/helpers/memoryRepos.js`)** — a faithful, stateful test double of the
+  repository singletons (using the REAL `lib/hash` + `lib/token`) so an integrated
+  test can `jest.mock('../src/repositories', …)` and drive the REAL app (routes,
+  middleware, logger, services) end to end over HTTP with supertest — no Postgres.
+- **Playwright E2E (`/e2e`)** — browser E2E of the full loop (send via admin API →
+  click + submit the decoy in a real browser → disclosure → auto-enroll → training
+  completion) plus a pause/rollback check. Opaque tracking/completion tokens (and
+  the quiz answer key) are read from the shared DB as an out-of-band **test
+  oracle** — the product still never exposes them (guardrails #5/#7-era Phase-7
+  key-safety). The E2E is intentionally **outside** the root npm workspaces (its
+  own `package.json` + `playwright.config.js`), so root `npm install` / `npm test`
+  stay DB- and browser-free; run it with `npm run test:e2e` against a live stack
+  (see `e2e/README.md`).
+- **Pre-Launch Checklist (`docs/PRE_LAUNCH_CHECKLIST.md`)** — the Dev Guide's
+  checklist walked as a launch gate: every guardrail and hardening item mapped to
+  where it is enforced and the named test that pins it, plus the operator's
+  per-deployment secret/config actions and a pause/rollback runbook.
+
+**Named guardrail / audit tests** (all DB-free, run in CI)
+- `tests/pause.rollback.guardrail.test.js` — a paused campaign records no new
+  click/submit and enrolls no one, while the tracked-link redirect and the
+  disclosure page are unchanged; an active control proves the gate is the only
+  change; defense-in-depth direct call returns `campaign_not_active`; the pure
+  `isCampaignLive` truth table.
+- `tests/system.credential.audit.test.js` — the whole-system credential-leak
+  audit. Drives the integrated loop with credential-shaped values posted to the
+  decoy and a raw address supplied to send/notify, capturing **every** sink —
+  structured logs, console/stdout+stderr, all response bodies AND headers
+  (incl. redirect `Location`), and the persisted store — and proves none contains
+  a submitted value or a raw address (guardrails #1, #2, #6). The literal word
+  "password" is allowed in the RENDERED decoy (it asks for one) but forbidden in
+  logs/console/persisted. Do not weaken or delete.
+- `tests/system.loop.integration.test.js` — the DB-free integrated full loop
+  (send → click → submit → disclosure → auto-enroll → view training → pass quiz →
+  completed → notify) with aggregate-only receipts (guardrail #5) and no persisted
+  address (guardrail #6) asserted inline; plus a failing-quiz path that does not
+  complete.
+- `tests/delivery.loadtest.test.js` — email send over a 1,000-recipient roster:
+  every deliverable target sent once, the throttle applied per send (rate limit
+  honored), heavy-duplicate dedupe (1000 entries → 50 unique), a 10%-failing
+  provider not aborting the batch, and a linear time bound.
+
+**Verified**
+- `npm test` → **303 tests pass** (258 backend incl. the four new Phase-11 suites,
+  45 frontend). All prior guardrail/route tests unchanged and green — the
+  pause/rollback gate is **additive** (older fixtures carry no `campaign_id` /
+  no non-active status, so the fail-open gate leaves their behavior identical).
+  The E2E JS is syntax-checked; it requires a live migrated+seeded stack to run
+  (no Postgres/Playwright browsers in this build environment), documented in
+  `e2e/README.md`.
+
+**Notes**
+- The MVP (Phases 0–11) is complete. Deferred past MVP (per the plan): SMS/smishing
+  delivery, browser extension, org-wide scale, CMS authoring, in-app perception
+  surveys. Unattended scheduled sending / enrollment notification remain
+  intentionally manual because the system stores no roster (guardrail #6).
+- The pause/rollback gate is the one deliberately **fail-open** control in the
+  system; it is scoped to behavioral flags only. If a future change moves any
+  legal-safety decision near it, that decision must fail **closed** as the others
+  do (`consent.js`, the schema invariant, analytics suppression).
