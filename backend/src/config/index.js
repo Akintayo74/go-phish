@@ -66,7 +66,14 @@ const config = {
   // (never the recipient address or body) and dispatches nothing over the
   // network. A real deployment sets a transactional provider (e.g. 'sendgrid')
   // and its credentials; see src/services/mailer.js for the pluggable seam.
-  mailProvider: process.env.MAIL_PROVIDER || 'console',
+  // GUARDRAIL: the test suite is ALWAYS hermetic. NODE_ENV=test forces the
+  // console transport no matter what MAIL_PROVIDER says, because a developer or
+  // CI box with a real relay in its .env would otherwise dispatch real phishing
+  // simulation emails to the suite's fixture addresses on every `npm test`.
+  // Fail closed: a test run must never be able to reach the network.
+  // (createMailer({ provider: 'smtp', transport }) still works — an explicit
+  // provider argument bypasses this default, which is how the smtp tests run.)
+  mailProvider: NODE_ENV === 'test' ? 'console' : process.env.MAIL_PROVIDER || 'console',
   // From-address for simulated emails. Generic/fictional — must not impersonate
   // a real organization (guardrail: no real-brand impersonation).
   mailFrom: process.env.MAIL_FROM || 'IT Service Desk <no-reply@catsim.invalid>',
