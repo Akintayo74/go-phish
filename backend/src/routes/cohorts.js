@@ -3,10 +3,21 @@
 // Cohort management API (Phase 2). CRUD over the consent unit plus the two
 // consent transitions (grant / withdraw). Consent is what gates delivery
 // (guardrail #3), so these endpoints are the front door to consent state.
+//
+// Authorization (mirrors routes/campaigns.js):
+//  - Any authenticated operator may read (list/get) — a Researcher needs to see
+//    which cohorts are consented to interpret an analytics report.
+//  - Only a Program Admin may create, edit, delete, or move consent. Granting
+//    consent is the single most consequential write in the system: it is what
+//    makes a group of real people targetable. A read-only Researcher must not
+//    be able to perform it, and the gate has to live HERE — hiding the button
+//    in the console is presentation, not authorization.
 
 const express = require('express');
 const { cohorts } = require('../repositories');
 const { asyncHandler, badRequest, notFound } = require('../lib/http');
+const { requireRole } = require('../middleware/auth');
+const { ROLES } = require('../lib/roles');
 
 const router = express.Router();
 
@@ -27,6 +38,8 @@ async function loadCohort(id) {
   return cohort;
 }
 
+// --- Reads: any authenticated operator ------------------------------------
+
 // List cohorts.
 router.get(
   '/',
@@ -35,6 +48,18 @@ router.get(
     res.json({ data: rows });
   })
 );
+
+// Get one cohort.
+router.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const cohort = await loadCohort(req.params.id);
+    res.json({ data: cohort });
+  })
+);
+
+// --- Writes: Program Admin only -------------------------------------------
+router.use(requireRole(ROLES.PROGRAM_ADMIN));
 
 // Create a cohort. Always starts at consent_status = 'pending' (the schema
 // default) — a cohort can never be born consented.
@@ -45,15 +70,6 @@ router.post(
     if (!attrs.name) throw badRequest('name_required');
     const row = await cohorts.create(attrs);
     res.status(201).json({ data: row });
-  })
-);
-
-// Get one cohort.
-router.get(
-  '/:id',
-  asyncHandler(async (req, res) => {
-    const cohort = await loadCohort(req.params.id);
-    res.json({ data: cohort });
   })
 );
 

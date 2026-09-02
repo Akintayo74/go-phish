@@ -9,10 +9,18 @@
 // (guardrail #2) already excludes bodies, so the raw identifier never reaches a
 // log sink either. Responses expose only the stored keyed hash, never a raw
 // address (there is none to expose).
+//
+// Authorization (mirrors routes/campaigns.js and routes/cohorts.js):
+//  - Any authenticated operator may read the roster — role/department/opt-out
+//    state is what a Researcher needs to read an aggregate report.
+//  - Only a Program Admin may enrol, edit, delete, or move opt-out state.
+//    These are the writes that change who can be contacted.
 
 const express = require('express');
 const { participants, cohorts } = require('../repositories');
 const { asyncHandler, badRequest, notFound } = require('../lib/http');
+const { requireRole } = require('../middleware/auth');
+const { ROLES } = require('../lib/roles');
 
 const router = express.Router();
 
@@ -27,6 +35,8 @@ async function assertCohortExists(cohortId) {
   if (!cohort) throw badRequest('cohort_not_found');
 }
 
+// --- Reads: any authenticated operator ------------------------------------
+
 // List participants, optionally scoped to a cohort via ?cohort_id=.
 router.get(
   '/',
@@ -38,6 +48,18 @@ router.get(
     res.json({ data: rows });
   })
 );
+
+// Get one participant.
+router.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const participant = await loadParticipant(req.params.id);
+    res.json({ data: participant });
+  })
+);
+
+// --- Writes: Program Admin only -------------------------------------------
+router.use(requireRole(ROLES.PROGRAM_ADMIN));
 
 // Create a participant from a raw identifier (hashed on write).
 router.post(
@@ -69,15 +91,6 @@ router.post(
       throw err;
     }
     res.status(201).json({ data: row });
-  })
-);
-
-// Get one participant.
-router.get(
-  '/:id',
-  asyncHandler(async (req, res) => {
-    const participant = await loadParticipant(req.params.id);
-    res.json({ data: participant });
   })
 );
 
