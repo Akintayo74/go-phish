@@ -25,3 +25,8 @@ npm-debug.log*
 .idea/
 .vscode/
 *.swp
+
+# Lockfiles: package-lock.json is the committed contract for this repo.
+# bun.lock is a local convenience (bun install migrates from package-lock).
+bun.lock
+bun.lockb
