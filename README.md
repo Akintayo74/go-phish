@@ -40,6 +40,55 @@ npm run dev:backend                      # http://localhost:4000/health
 npm run dev:frontend                     # http://localhost:5173
 ```
 
+## Seeing real email locally (Mailpit)
+
+`MAIL_PROVIDER=console` is hermetic — it sends nothing, so the per-participant
+tracking token exists only in the database and has to be read out by hand. That
+is fine for CI, but it makes the loop unwalkable as a human.
+
+Set `MAIL_PROVIDER=smtp` and point it at a local mail catcher instead. Simulated
+mail then becomes *real* mail that still cannot reach a real person:
+
+```bash
+docker run -d --name catsim-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+```bash
+# backend/.env
+MAIL_PROVIDER=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+APP_BASE_URL=http://localhost:5173   # see "Two origins" below
+```
+
+Read the inbox at <http://localhost:8025>. Send a campaign, open the lure email,
+and click its link — no `psql`, no token copying. The enrollment notification
+arrives the same way with the training link.
+
+For a real deployment, set `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` to a transactional
+relay. `SMTP_PASS` is never logged, and an SMTP error is re-thrown with its error
+*code* only — provider messages routinely echo the recipient address back, and
+that address must not reach a log or a stack trace (guardrail #6).
+
+### Two origins: `PUBLIC_BASE_URL` vs `APP_BASE_URL`
+
+Participant links are served from two different places, and using the wrong one
+produces a link that silently resolves to a JSON `404` — nothing throws, and the
+send still reports success:
+
+| Link | Served by | Built from |
+|---|---|---|
+| `/t/<token>`, `/sim/<token>` | this API | `PUBLIC_BASE_URL` |
+| `#/enroll/<token>`, `#/learn` | the React app | `APP_BASE_URL` |
+
+`APP_BASE_URL` defaults to `PUBLIC_BASE_URL`, so a single-origin deployment (the
+frontend served by Express) needs no extra config. Set it whenever the frontend
+is served separately — the Vite dev server, or a static host in production.
+`tests/link.origins.test.js` pins the distinction.
+
+> Note `SIM_TRAINING_URL` must be **quoted** in a `.env` file. An unquoted `#`
+> opens an inline comment, so `SIM_TRAINING_URL=/#/learn` parses as `"/"`.
+
 ## Tests
 
 ```bash

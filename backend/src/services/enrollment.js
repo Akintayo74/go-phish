@@ -246,11 +246,16 @@ async function notifyEnrollments({
   return summary;
 }
 
-// The participant-facing training link the notification points at. The frontend
-// serves the enroll view at the `#/enroll/<token>` hash route, which loads the
-// assignment via GET /api/enroll/:token.
+// The participant-facing training link the notification points at. The FRONTEND
+// serves the enroll view at the `#/enroll/<token>` hash route (which then loads
+// the assignment via GET /api/enroll/:token on the API).
+//
+// This must be built against `appBaseUrl`, NOT `publicBaseUrl`: publicBaseUrl is
+// this API's origin, and the API has no such route, so a link built against it
+// lands on the JSON 404 handler instead of the training page. The two are equal
+// by default, so single-origin deployments are unaffected.
 function defaultTrainingUrl(token) {
-  return `${config.publicBaseUrl}/#/enroll/${encodeURIComponent(token)}`;
+  return `${config.appBaseUrl}/#/enroll/${encodeURIComponent(token)}`;
 }
 
 module.exports = {
