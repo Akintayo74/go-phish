@@ -14,6 +14,7 @@ const participantRoutes = require('./routes/participants');
 const campaignRoutes = require('./routes/campaigns');
 const simRoutes = require('./routes/sim');
 const trackRoutes = require('./routes/track');
+const learnRoutes = require('./routes/learn');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -41,6 +42,12 @@ function createApp({ logger } = {}) {
 
   // Phase 3 — campaign CRUD skeleton (no sending yet; delivery is Phase 5).
   app.use('/api/campaigns', campaignRoutes);
+
+  // Phase 6 — CAT platform content. PUBLIC and UNAUTHENTICATED: the learning
+  // site is a resource anyone may read (not gated behind failing a sim). Serves
+  // published lesson modules + the resource library; read-only, records nothing
+  // about who reads what (see routes/learn.js).
+  app.use('/api/learn', learnRoutes);
 
   // Phase 5 — interaction tracking. Participant-facing, UNAUTHENTICATED: the
   // tracked link `/t/:token` flips clicked/opened and redirects to the Phase 4

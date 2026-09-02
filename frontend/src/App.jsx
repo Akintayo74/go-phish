@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import AdminConsole from './admin/AdminConsole.jsx';
+import LearningSite from './learn/LearningSite.jsx';
 
 // App shell. A tiny hash-based switch (no router dependency yet) selects between
-// the public landing view and the Phase 3 admin console at #/admin. Later phases
-// add the public CAT learning site under its own route.
+// the public landing view, the Phase 3 admin console at #/admin, and the public
+// CAT learning site at #/learn (Phase 6).
 function useHashRoute() {
   const [hash, setHash] = useState(() =>
     typeof window !== 'undefined' ? window.location.hash : ''
@@ -37,6 +38,9 @@ function Landing() {
         Backend status: <strong data-testid="health">{health}</strong>
       </p>
       <p>
+        <a href="#/learn">Cybersecurity awareness training →</a>
+      </p>
+      <p>
         <a href="#/admin">Admin console →</a>
       </p>
     </>
@@ -46,11 +50,17 @@ function Landing() {
 export default function App() {
   const hash = useHashRoute();
   const isAdmin = hash === '#/admin';
+  const isLearn = hash === '#/learn' || hash.startsWith('#/learn/');
+
+  let view;
+  if (isAdmin) view = <AdminConsole />;
+  else if (isLearn) view = <LearningSite hash={hash} />;
+  else view = <Landing />;
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
       <h1>CAT-Sim</h1>
-      {isAdmin ? <AdminConsole /> : <Landing />}
+      {view}
     </main>
   );
 }

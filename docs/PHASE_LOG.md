@@ -379,3 +379,168 @@ full plan.
 - Phase 8's enrollment loop keys off the `interactions` flags this phase now
   populates (`clicked` / `submitted`). Phase 9 analytics read the same flags for
   the aggregate four-tier breakdown.
+
+## Phase 6 — CAT platform: lesson modules + resource library ✅
+
+**Delivered**
+- **Published-only content repository (`src/repositories/learningModules.js`)** —
+  the CAT site is public, so the read helpers are the front door to what the
+  world can see. `listPublished({ category })` (metadata-only list, ordered by
+  category → order_index → title; the `body_markdown` column is deliberately not
+  selected for the index), `findPublishedBySlug(slug)` (one module with its body;
+  returns `undefined` for an unknown **or** unpublished slug, so a draft's
+  existence never leaks), and `listPublishedCategories()`. Every method pins
+  `published = true`. The inherited generic methods remain for future admin
+  authoring but are wired to no public endpoint.
+- **Public CAT content API (`src/routes/learn.js`, mounted `/api/learn`)** —
+  **UNAUTHENTICATED** and read-only (the learning site is a resource anyone may
+  read, explicitly not gated behind failing a sim). Three routes:
+  `GET /modules` (published index, optional `?category=`), `GET /modules/:slug`
+  (one published module with body; unknown/unpublished → indistinguishable
+  `404 module_not_found`), and `GET /library` (published modules grouped by
+  category for the resource-library index; uncategorized modules fall under a
+  stable `general` bucket). Records nothing about who reads what (guardrail #6).
+- **Frontend CAT learning site** — `#/learn` resource-library index (modules
+  grouped by humanized category label, each linking to `#/learn/<slug>`) and
+  `#/learn/<slug>` module view (rendered body + back link). A small
+  **dependency-free, script-safe Markdown renderer** (`src/learn/markdown.jsx`)
+  builds React elements directly (never `dangerouslySetInnerHTML`) and restricts
+  links to safe schemes (http/https/mailto/relative) — a `javascript:` URL in
+  content is dropped to plain text. `src/learn/api.js` is the token-less public
+  fetch client (unlike `admin/api.js`). Wired into `App.jsx` with a landing-page
+  link.
+- **Seed content** — `seeds/01_demo_data.js` expanded to the full Phase 6
+  curriculum: *What Phishing and Social Engineering Are*, *How to Recognize a
+  Phishing Attempt*, *Local Tactics: SIM Swap, Smishing, Vishing, Impersonation*
+  (Nigerian financial-sector context), *What To Do If You Clicked*, and
+  *Protecting Your Accounts*, grouped by category. One intentionally
+  **unpublished** draft module is seeded so the published-only API is exercised
+  by real data. The existing knowledge-check quiz still attaches to the phishing
+  module (its slug lookup was made resilient to ordering).
+- **Config** — `SIM_TRAINING_URL` default changed from `/` to `/#/learn` so the
+  Phase 4 disclosure page's "go to training" link now points at the CAT site
+  (both `.env.example`s updated).
+
+**Named guardrail test**
+- `tests/learn.published.guardrail.test.js` — **DB-free**. Drives each public
+  read path through a recording query stub and proves every one pins
+  `published: true` (so a draft can never leak), that a category filter is
+  *additional* (not a replacement), that an unpublished slug resolves to
+  `undefined`, and that the list view never selects `body_markdown`. Do not
+  weaken or delete.
+
+**Other tests**
+- `tests/learn.routes.test.js` (backend, DB-free): the three routes are public
+  (no auth), pass `?category=` through to the published-only accessor, return one
+  module with its body, surface an indistinguishable 404 for a draft/unknown
+  slug, and group the library by category (with the `general` fallback).
+- `src/learn/markdown.test.jsx` (frontend): headings, paragraphs, ordered/
+  unordered lists, blockquotes, inline bold/code/links; safe-scheme allow-list;
+  a `javascript:` link dropped to text; no `<script>` emitted from content;
+  empty/non-string input handled.
+- `src/learn/LearningSite.test.jsx` (frontend): `slugFromHash` parsing, the
+  library view rendering grouped modules with correct hrefs, the module view
+  rendering fetched markdown with a back link, and the not-found message for an
+  unknown/unpublished slug.
+
+**Verified**
+- `npm test` → **156 tests pass** (133 backend incl. the two new learn suites,
+  23 frontend incl. the two new learn suites); frontend production build OK.
+- Against a live Postgres 16: migrations apply (8), seeds run, the DB-backed
+  schema test runs (not skipped), and an end-to-end smoke of `/api/learn`
+  confirmed — library grouped correctly by category, the module index excludes
+  the draft and carries no `body_markdown`, a published slug returns its body, a
+  draft slug is a `404` (not leaked), and every endpoint answers with no auth.
+
+**Notes for next phase**
+- Phase 7 (quiz engine + knowledge checks, *Sonnet 5*) builds on the `quizzes`
+  table (already seeded with a per-module knowledge check as a JSON `questions`
+  array + `pass_threshold`). Add a public read API for a module's quiz (mounting
+  alongside `/api/learn`) and a React quiz component that scores against
+  `pass_threshold`; results feed the completion tracking Phase 8 keys off. Keep
+  the answer key server-side where scoring must not be trusted to the client.
+- The learning content lives in the DB (seeded). A future admin authoring UI can
+  reuse the generic `learningModules` repo methods (create/update/publish); the
+  public API already refuses to serve anything with `published = false`.
+
+## Phase 7 — CAT platform: quiz engine + knowledge checks ✅
+
+**Delivered**
+- **Answer-key-safe quiz repository (`src/repositories/quizzes.js`)** — replaces
+  the generic factory entry with a guardrail-aware repo. `toPublic(quiz)` returns
+  the quiz with every question's `answer_index` **stripped** (prompt + ordered
+  choices only) and never mutates the input row; `toPublicQuestion` is the
+  per-question scrubber. `findByPublishedModuleSlug(slug)` joins
+  `learning_modules` and pins `published = true`, so the quiz of an unknown **or**
+  unpublished module resolves to `undefined` — a draft's quiz never leaks (same
+  contract as Phase 6's `findPublishedBySlug`). It returns the full keyed row for
+  server-side scoring; routes must run it through `toPublic` before responding.
+- **Scoring engine (`src/services/quiz.js`)** — GUARDRAIL-CRITICAL: the answer
+  key lives only here on the server. `scoreQuiz(quiz, answers)` grades a dense
+  array of chosen choice indices against the private key and returns an
+  **aggregate-only** result `{ total, correct, score, passed, pass_threshold }`
+  — no per-question key, so it reveals nothing a re-take could exploit. Exact
+  percentage (`round(correct/total*100)`), pass on `score >= pass_threshold`, a
+  zero-question quiz can't be passed. `normalizeAnswers` nulls
+  missing/non-integer entries so a malformed body scores zero rather than
+  crashing. **Stateless** — nothing is persisted (Phase 8 wires completion
+  tracking off the result).
+- **Public quiz API** — two routes added to `src/routes/learn.js` (mounted
+  `/api/learn`, **UNAUTHENTICATED** like the rest of the CAT site):
+  `GET /modules/:slug/quiz` returns the published module's quiz via `toPublic`
+  (no answer key; unknown/unpublished/no-quiz → indistinguishable
+  `404 quiz_not_found`), and `POST /modules/:slug/quiz/attempt` scores
+  `{ answers: [...] }` server-side and returns the aggregate result (a non-array
+  `answers` → `400 answers_must_be_array`; a missing one scores zero). The posted
+  body is excluded from logs by the Phase 0 global logger.
+- **Frontend quiz component (`src/learn/Quiz.jsx`)** — rendered beneath the
+  lesson body on `#/learn/<slug>`. Fetches the answer-key-free quiz, renders each
+  question as a radio group, keeps submit disabled until every question is
+  answered, POSTs the chosen indices for **server** scoring, and shows the
+  returned score + pass/fail with a retake. A module with no quiz (404) renders
+  nothing. `src/learn/api.js` gained `quiz` / `submitQuiz` (a shared
+  `request`/`post` helper) and `LearningSite.jsx` mounts `<Quiz>` under the
+  module body.
+- **Seed** — `seeds/01_demo_data.js` now attaches per-module knowledge checks to
+  two published modules (`recognizing-phishing` and `what-to-do-if-you-clicked`),
+  so the public API and scoring are exercised by real data. No schema/migration
+  change — the Phase 1 `quizzes` table already carries `questions` (JSONB) +
+  `pass_threshold`. **No new dependencies.**
+
+**Named guardrail test**
+- `tests/quiz.answerkey.guardrail.test.js` — proves the answer key never leaves
+  the server three ways: (1) `toPublic` strips `answer_index` from every question
+  and does not mutate the row; (2) the `GET …/quiz` response body contains no
+  `answer_index` even though the repo returns the full keyed row; (3) the POST
+  attempt result is aggregate-only and never echoes the key. Do not weaken or
+  delete.
+
+**Other tests** (all DB-free)
+- `tests/quiz.repo.test.js` — `findByPublishedModuleSlug` joins the module table,
+  pins `published = true` (a draft's quiz is invisible), and selects only quiz
+  columns.
+- `tests/quiz.service.test.js` — scoring math: all-correct/partial/threshold-
+  boundary (`>=`), unanswered = incorrect, malformed/missing answers score zero
+  without throwing, zero-question quiz can't pass, threshold defaults to 70.
+- `tests/quiz.routes.test.js` — both routes are public; GET returns the
+  key-stripped quiz and a `404` for unknown/unpublished; POST scores pass/fail,
+  tolerates a missing array, `400`s a non-array, and `404`s an unknown module.
+- `src/learn/Quiz.test.jsx` (frontend) — renders questions/choices (payload
+  carries no answer key), renders nothing on a 404, keeps submit disabled until
+  all answered, submits and shows the server-scored result, and posts the chosen
+  indices as a dense array (never a key).
+
+**Verified**
+- `npm test` → **186 tests pass** (158 backend incl. the four new quiz suites, 28
+  frontend incl. the new Quiz suite); frontend production build OK. The DB-backed
+  schema test skips gracefully with no Postgres, as before.
+
+**Notes for next phase**
+- Phase 8 (automatic enrollment loop, *Sonnet 5*) keys off the `interactions`
+  flags (`clicked` / `submitted`) to create a `training_assignment`. The quiz
+  attempt endpoint is intentionally **stateless** in this phase; Phase 8 (or a
+  small follow-up) decides where a passing score marks a `training_assignment`
+  `completed` — the scored result shape (`{ passed, score, pass_threshold, … }`)
+  is designed to feed that directly. If attempts ever need to be recorded, do it
+  in `training_assignments`/completion tracking, **not** on `quizzes` (which by
+  design stores no participant answers).
