@@ -10,8 +10,8 @@
 // A Researcher is a read-only role (see lib/roles.js). This file pins that a
 // Researcher session — a valid, authenticated session, not an anonymous one —
 // cannot grant or withdraw consent, cannot enrol or delete a participant,
-// and cannot flip an opt-out. It pins the complement too: they CAN still
-// read, because reading which cohorts
+// cannot flip an opt-out, and cannot resolve an address to a participant. It
+// pins the complement too: they CAN still read, because reading which cohorts
 // are consented is part of interpreting an aggregate report.
 //
 // This is deliberately a server-side test. The admin console also hides these
@@ -32,6 +32,7 @@ jest.mock('../src/repositories', () => ({
     list: jest.fn(),
     query: jest.fn(),
     findById: jest.fn(),
+    findByIdentifier: jest.fn(),
     createFromIdentifier: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
@@ -62,6 +63,7 @@ const CONSENT_WRITES = [
   ['post', '/api/cohorts/c1/consent/grant', undefined],
   ['post', '/api/cohorts/c1/consent/withdraw', undefined],
   ['post', '/api/participants', { identifier: 'a@b.test', cohort_id: 'c1' }],
+  ['post', '/api/participants/lookup', { identifier: 'a@b.test' }],
   ['patch', '/api/participants/p1', { role: 'Teller' }],
   ['delete', '/api/participants/p1', undefined],
   ['post', '/api/participants/p1/opt-out', undefined],
@@ -79,6 +81,7 @@ beforeEach(() => {
   cohorts.grantConsent.mockResolvedValue({ id: 'c1', consent_status: 'granted' });
   cohorts.withdrawConsent.mockResolvedValue({ id: 'c1', consent_status: 'withdrawn' });
   participants.findById.mockResolvedValue({ id: 'p1', cohort_id: 'c1', opted_out: false });
+  participants.findByIdentifier.mockResolvedValue({ id: 'p1', cohort_id: 'c1' });
   participants.createFromIdentifier.mockResolvedValue({ id: 'p1' });
   participants.update.mockResolvedValue({ id: 'p1' });
   participants.remove.mockResolvedValue(1);
@@ -107,6 +110,7 @@ describe('GUARDRAIL: a Researcher cannot move consent or the roster', () => {
       cohorts.grantConsent,
       cohorts.withdrawConsent,
       participants.createFromIdentifier,
+      participants.findByIdentifier,
       participants.update,
       participants.remove,
       participants.optOut,

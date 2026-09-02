@@ -13,8 +13,9 @@
 // Authorization (mirrors routes/campaigns.js and routes/cohorts.js):
 //  - Any authenticated operator may read the roster — role/department/opt-out
 //    state is what a Researcher needs to read an aggregate report.
-//  - Only a Program Admin may enrol, edit, delete, or move opt-out state.
-//    These are the writes that change who can be contacted.
+//  - Only a Program Admin may enrol, edit, delete, or move opt-out state, and
+//    only a Program Admin may resolve an address to a participant (see
+//    /lookup). These are the writes that change who can be contacted.
 
 const express = require('express');
 const { participants, cohorts } = require('../repositories');
@@ -58,8 +59,37 @@ router.get(
   })
 );
 
-// --- Writes: Program Admin only -------------------------------------------
+// --- Writes (and identity resolution): Program Admin only ------------------
 router.use(requireRole(ROLES.PROGRAM_ADMIN));
+
+// Resolve a RAW contact identifier to the participant it was enrolled as.
+//
+// Participants are pseudonymous by construction (guardrail #6): the console can
+// list a roster but cannot tell an operator WHICH row is the person who just
+// emailed asking to be removed, because only a keyed hash is stored and the key
+// lives on the server. Without this endpoint an individual opt-out — the one
+// thing consent law makes non-negotiable — is unperformable except with a
+// database client. So the raw address is hashed here, matched, and discarded.
+//
+// Deliberate choices:
+//  * POST, not GET-with-a-query — a raw address in a query string would land in
+//    a URL, and `path`-only logging (guardrail #2) protects bodies, not queries.
+//  * The identifier is never echoed back, not even in the 404.
+//  * The response is the ordinary participant row. It carries NO behavioural
+//    data: this resolves identity for an opt-out, it does not answer "what did
+//    this person do" (guardrail #5). Do not widen it to join `interactions`.
+router.post(
+  '/lookup',
+  asyncHandler(async (req, res) => {
+    const { identifier } = req.body || {};
+    if (!identifier || String(identifier).trim() === '') {
+      throw badRequest('identifier_required');
+    }
+    const participant = await participants.findByIdentifier(identifier);
+    if (!participant) throw notFound('participant_not_found');
+    res.json({ data: participant });
+  })
+);
 
 // Create a participant from a raw identifier (hashed on write).
 router.post(
