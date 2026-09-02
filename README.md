@@ -40,6 +40,28 @@ npm run dev:backend                      # http://localhost:4000/health
 npm run dev:frontend                     # http://localhost:5173
 ```
 
+## Sending from the admin console
+
+Each campaign row in `#/admin` carries a **Send** control (Program Admin only —
+a Researcher never sees it, mirroring the backend role gate). It takes a roster
+of raw recipient addresses, one per line or comma-separated, and drives both
+sends: **Send simulation** (the lure) and **Notify enrolled** (the training
+email for participants the enrollment loop has already assigned).
+
+Two properties the panel deliberately holds to, matching the backend:
+
+- **The roster is transient.** It lives in component state only — never
+  `localStorage`, never a query string — and is dropped as soon as the send
+  returns. The backend stores only a keyed hash to match each address against a
+  consented participant (guardrail #6) and never persists the address itself.
+- **The receipt is aggregate-only.** It renders counts and withholding reasons
+  ("3 withheld by the consent gate"), never a per-recipient outcome. *Which* of
+  your staff clicked is precisely what this system is built not to answer
+  (guardrail #5), and that must not be softened here for convenience.
+
+`Send simulation` is disabled unless the campaign is `active`, mirroring the
+backend's lifecycle refusal. `SendPanel.test.jsx` pins all of the above.
+
 ## Seeing real email locally (Mailpit)
 
 `MAIL_PROVIDER=console` is hermetic — it sends nothing, so the per-participant

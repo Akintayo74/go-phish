@@ -20,6 +20,8 @@ vi.mock('./api.js', () => {
       cloneCampaign: vi.fn(),
       campaignPhases: vi.fn(),
       compareCampaigns: vi.fn(),
+      sendCampaign: vi.fn(),
+      notifyEnrollments: vi.fn(),
     },
   };
 });
@@ -240,6 +242,31 @@ describe('AdminConsole', () => {
     await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
     expect(screen.queryByRole('form', { name: /create campaign/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pause/i })).not.toBeInTheDocument();
+    // Delivery is a write: a Researcher must not be offered it. The backend
+    // gates /send on Program Admin too; this keeps the UI from showing a
+    // control that could only ever 403.
+    expect(screen.queryByRole('button', { name: /^send$/i })).not.toBeInTheDocument();
+  });
+
+  it('offers the send control to a Program Admin', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'admin@example.test', role: 'program_admin' },
+    });
+    api.listCampaigns.mockResolvedValue({
+      data: [{ id: 'k1', name: 'Baseline', status: 'active' }],
+    });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+    const send = screen.getByRole('button', { name: /^send$/i });
+    expect(send).toBeInTheDocument();
+    fireEvent.click(send);
+    expect(screen.getByLabelText('recipient addresses')).toBeInTheDocument();
   });
 
   it('surfaces an invalid-credentials error', async () => {
