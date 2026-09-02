@@ -85,4 +85,69 @@ function renderSimulationEmail({ brandName, trackingUrl, pixelUrl } = {}) {
   return { subject, html, text };
 }
 
-module.exports = { renderSimulationEmail };
+// Phase 8 — enrollment notification email.
+//
+// Sent AFTER a participant has already been disclosed the simulation (guardrail
+// #4). Its tone is deliberately supportive and NON-PUNITIVE (guardrail #6 /
+// PRD ethics): this is an invitation to a short awareness lesson, not a
+// reprimand. The only link is the tokened training link, which lets the
+// participant reach and complete their assigned module without an account. The
+// brand string is the same generic/fictional placeholder used elsewhere.
+function renderEnrollmentEmail({ brandName, trainingUrl, moduleTitle } = {}) {
+  const brand = escapeHtml(brandName || 'Security Awareness');
+  const url = escapeHtml(trainingUrl || '#');
+  const title = escapeHtml(moduleTitle || 'a short awareness lesson');
+  const titlePlain = moduleTitle || 'a short awareness lesson';
+
+  const subject = `[${brandName || 'Security Awareness'}] Your quick security awareness training`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;background:#f4f5f7;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e4e8;border-radius:8px;">
+      <tr>
+        <td style="padding:24px 28px;">
+          <h1 style="font-size:18px;margin:0 0 16px;">${brand}</h1>
+          <p style="font-size:14px;line-height:1.5;margin:0 0 14px;">Hello,</p>
+          <p style="font-size:14px;line-height:1.5;margin:0 0 14px;">
+            You recently took part in a phishing simulation. This kind of thing
+            happens to careful people every day — there is no penalty and nothing
+            you typed was captured or stored. To help you spot the next one, we
+            have enrolled you in a short lesson: <strong>${title}</strong>.
+          </p>
+          <p style="margin:24px 0;">
+            <a href="${url}" style="background:#2b6cb0;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;display:inline-block;">Start my training</a>
+          </p>
+          <p style="font-size:12px;line-height:1.5;color:#66707a;margin:0 0 6px;">
+            If the button does not work, copy and paste this link into your browser:
+          </p>
+          <p style="font-size:12px;line-height:1.5;color:#66707a;margin:0 0 16px;word-break:break-all;">${url}</p>
+          <p style="font-size:12px;line-height:1.5;color:#98a2ad;margin:0;">
+            It only takes a few minutes. Thank you for helping keep everyone safer.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = [
+    `${brandName || 'Security Awareness'}`,
+    '',
+    'Hello,',
+    '',
+    'You recently took part in a phishing simulation. This happens to careful',
+    'people every day — there is no penalty and nothing you typed was captured',
+    'or stored. To help you spot the next one, we have enrolled you in a short',
+    `lesson: ${titlePlain}.`,
+    '',
+    'Start your training:',
+    trainingUrl || '',
+    '',
+    'It only takes a few minutes. Thank you for helping keep everyone safer.',
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
+module.exports = { renderSimulationEmail, renderEnrollmentEmail };

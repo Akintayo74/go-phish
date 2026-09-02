@@ -57,13 +57,28 @@ exports.seed = async function seed(knex) {
     },
   ]);
 
-  // --- Campaign -----------------------------------------------------------
+  // --- Campaigns ----------------------------------------------------------
+  // Phase I is the baseline measurement. Phase II is a re-test cloned from it
+  // (Phase 10): same definition, its own clean slate, linked back via
+  // `cloned_from_campaign_id` so the two line up in the side-by-side comparison
+  // view. It is left in 'draft' — a re-test is scheduled and sent fresh.
+  const [phaseI] = await knex('campaigns')
+    .insert({
+      name: 'Baseline Susceptibility — Phase I',
+      description: 'Initial measurement against the consented Lagos cohort.',
+      status: 'draft',
+      phase_label: 'Phase I',
+      enrollment_trigger: 'submitted',
+    })
+    .returning('*');
+
   await knex('campaigns').insert({
-    name: 'Baseline Susceptibility — Phase I',
-    description: 'Initial measurement against the consented Lagos cohort.',
+    name: 'Baseline Susceptibility — Phase II (re-test)',
+    description: 'Re-test of the Lagos cohort after the first training cycle.',
     status: 'draft',
-    phase_label: 'Phase I',
+    phase_label: 'Phase II',
     enrollment_trigger: 'submitted',
+    cloned_from_campaign_id: phaseI.id,
   });
 
   // --- Learning modules (the CAT resource library) + a quiz ---------------

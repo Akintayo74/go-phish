@@ -95,10 +95,10 @@ design.
 | 5 | Interaction tracking + campaign delivery ✅ | 2,3,4 | **Sonnet 5** | Tokened links + email integration, design pinned here |
 | 6 | CAT platform — lesson modules + resource library ✅ | 0 | **Sonnet 5** | Content + React rendering |
 | 7 | CAT platform — quiz engine + knowledge checks ✅ | 6 | **Sonnet 5** | Scoring logic + UI |
-| 8 | Automatic enrollment loop | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
-| 9 | Analytics dashboard | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
-| 10 | Phase II / re-test support | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
-| 11 | E2E testing, security & log audit, pre-launch hardening | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
+| 8 | Automatic enrollment loop ✅ | 4,5,7 | **Sonnet 5** | Trigger → assignment → notify → completion tracking |
+| 9 | Analytics dashboard ✅ | 5,8 | **Opus 5** | Aggregate-only privacy invariant + phase-over-phase math |
+| 10 | Phase II / re-test support ✅ | 9 | **Sonnet 5** | Campaign cloning + side-by-side comparison |
+| 11 | E2E testing, security & log audit, pre-launch hardening ✅ | all | **Opus 5** | Whole-system credential-leak audit; pause/rollback; load test |
 
 ### Phase detail
 
@@ -151,28 +151,43 @@ design.
 - Quiz component with pass/fail scoring against `Quiz.pass_threshold`;
   per-module knowledge checks; results feed completion tracking.
 
-**Phase 8 — Automatic enrollment loop** · *Sonnet 5* (Step 7)
+**Phase 8 — Automatic enrollment loop** · *Sonnet 5* (Step 7) ✅
 - On `submitted = true` (or `clicked`, per configured strictness) auto-create
   a `TrainingAssignment` with `assigned_reason`; notify participant by email;
   completion tracking; optional re-simulation scheduling hook.
 
-**Phase 9 — Analytics dashboard** · *Opus 5* (Step 8)
+**Phase 9 — Analytics dashboard** · *Opus 5* (Step 8) ✅
 - Aggregate-only queries: click rate, submission rate, four-tier breakdown
   (no action / opened only / clicked only / clicked+submitted), grouped by
   cohort/department. Phase-over-phase comparison. Anonymized export.
 - **Guardrail:** no per-individual result in any management-facing view.
 
-**Phase 10 — Phase II / re-test support** · *Sonnet 5* (Step 9)
+**Phase 10 — Phase II / re-test support** · *Sonnet 5* (Step 9) ✅
 - Clone a campaign as a new phase against same/updated cohort; Phase I vs
   Phase II side-by-side comparison view (the core research payoff).
+- Implemented: `cloned_from_campaign_id` lineage column (self-FK, ON DELETE SET
+  NULL); `POST /api/campaigns/:id/clone` (Program Admin) copies only the
+  definition — never the source's status, schedule, or behavioral data — and is
+  born 'draft'; `GET /api/campaigns/:id/phases` returns the whole re-test family
+  oldest-first; the existing aggregate-only `/analytics/compare` (Phase 9) drives
+  the side-by-side deltas. Admin console gains a "Clone as new phase" control and
+  a "Compare phases" panel (`PhaseComparison`), the latter aggregate-only and
+  open to researchers.
 
-**Phase 11 — E2E testing, security & log audit, pre-launch hardening** · *Opus 5*
+**Phase 11 — E2E testing, security & log audit, pre-launch hardening** · *Opus 5* ✅
 - Playwright E2E of the full loop: send → click → submit → auto-enroll →
-  training completion.
-- Whole-system credential-leak audit (logs, headers, query strings, traces);
-  the named "no persisted field values" test re-run against the integrated
-  system; load-test email sending; campaign **pause/rollback** mechanism.
-- Walk the Dev Guide's Pre-Launch Checklist.
+  training completion (`/e2e`, runs against a live stack; kept out of the root
+  workspaces so `npm test` stays DB/browser-free). A DB-free integrated
+  full-loop test (`system.loop.integration`) runs the same loop over HTTP in CI.
+- Whole-system credential-leak audit (`system.credential.audit`): drives the
+  integrated system and proves no submitted value or raw address escapes through
+  logs, console/traces, response bodies + headers, or the persisted store — the
+  "no persisted field values" invariant re-run end to end. Email **load test**
+  (`delivery.loadtest`, 1k roster + throttle). Campaign **pause/rollback**
+  mechanism (`services/campaignState.js` + `pause.rollback.guardrail`): a paused
+  campaign records no new flags and enrolls no one, while the decoy redirect and
+  disclosure are preserved.
+- Walked the Dev Guide's Pre-Launch Checklist — `docs/PRE_LAUNCH_CHECKLIST.md`.
 
 ---
 

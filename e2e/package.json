@@ -1,0 +1,16 @@
+{
+  "name": "@cat-sim/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CAT-Sim Playwright end-to-end tests (Phase 11). Runs against a live stack; intentionally NOT part of the root npm workspaces so `npm install`/`npm test` at the repo root stay DB- and browser-free.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "knex": "^3.1.0",
+    "pg": "^8.12.0"
+  }
+}

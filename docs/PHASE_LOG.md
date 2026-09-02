@@ -544,3 +544,381 @@ full plan.
   is designed to feed that directly. If attempts ever need to be recorded, do it
   in `training_assignments`/completion tracking, **not** on `quizzes` (which by
   design stores no participant answers).
+
+## Phase 8 — Automatic enrollment loop ✅
+
+**Delivered**
+- **Enrollment service (`src/services/enrollment.js`)** — closes the loop from
+  "measured vulnerability" to "targeted education".
+  - `enrollFromInteraction(interaction)` is the trigger→assignment core: it loads
+    the interaction's campaign, checks its `enrollment_trigger` against the
+    interaction's flags (`meetsTrigger` — a submit always counts; a click-only
+    interaction enrolls only when the campaign's trigger is `clicked`), resolves
+    the configured **published** training module, and creates a
+    `training_assignment` with `assigned_reason` (`submitted_form` / `clicked_link`).
+    **Idempotent** — an existing assignment is reused (backed by the unique
+    `(participant, module, campaign)` constraint, with a race backstop that
+    re-reads on a unique violation).
+  - `safeEnrollFromInteraction` wraps it for the participant-facing routes:
+    enrollment is a **best-effort side effect** and must never throw back into
+    (and break) the click/submit response or the guaranteed disclosure
+    (guardrail #4).
+  - `nextResimulationDate(assignment)` is the optional **re-simulation scheduling
+    hook** — advisory only (returns a recommended Date once training is
+    completed; nothing is dispatched automatically, consistent with the system
+    storing no roster).
+- **Trigger wiring** — `GET /t/:token` (after `markClicked`) and `POST /sim/:token`
+  (after `markSubmitted`) now call `safeEnrollFromInteraction` on the updated
+  interaction. Enrollment failures are swallowed; the redirect/disclosure flow is
+  never interrupted.
+- **Completion via an opaque assignment token** — the CAT site is deliberately
+  anonymous (guardrail #6), so completing a *specific* assignment without a
+  participant login is done with a capability token. A migration
+  (`20260829120001`) adds `completion_token` (unique) + `notified_at` to
+  `training_assignments`; the new guardrail-aware repo
+  (`src/repositories/trainingAssignments.js`) mints the token on
+  `createForEnrollment` and exposes `findByToken` / `findExisting` /
+  `listByCampaignAndParticipant` / `markInProgress` / `markCompleted` /
+  `markNotified` / `toPublic` (strips `participant_id` and the token from the
+  participant-facing projection).
+- **Enroll routes (`src/routes/enroll.js`, mounted `/api/enroll`)** —
+  PARTICIPANT-FACING, UNAUTHENTICATED, keyed by the assignment token:
+  `GET /:token` returns the assignment + its assigned module (and advances
+  `assigned → in_progress` on first view; unknown token → `404
+  assignment_not_found`), and `POST /:token/quiz/attempt` scores the assigned
+  module's knowledge check **server-side** (reusing Phase 7's `scoreQuiz`, so the
+  answer key never leaves the server) and marks the assignment `completed` on a
+  pass. Answers are graded but never stored.
+- **Notification (`POST /api/campaigns/:id/notify-enrollments`, Program Admin
+  only)** — the "notify by email" step. GUARDRAIL-CRITICAL, mirroring Phase 5
+  delivery: the raw roster is supplied **transiently** in the body (guardrail #6
+  — the system stores only a keyed hash), each address is hashed to match a
+  stored participant, gated through the single `isDeliverable` consent predicate
+  (guardrail #3), used **only** as the mail `to`, and **never persisted** — only
+  `notified_at` is stamped. Sends the supportive, **non-punitive**
+  `renderEnrollmentEmail` (new template) with the tokened training link; returns
+  an **aggregate summary only** (guardrail #5).
+- **Config** — `ENROLLMENT_MODULE_SLUG` (default `recognizing-phishing`, a
+  seeded/published module carrying a quiz) and `RESIMULATION_INTERVAL_DAYS`
+  (default 90) added to `src/config` and both `.env.example`s.
+- **Frontend** — `#/enroll/<token>` view (`src/enroll/EnrollView.jsx` + `api.js`)
+  renders the assigned lesson + knowledge check; passing marks the assignment
+  completed via the enroll token. `Quiz.jsx` gained optional `submitAnswers` /
+  `onResult` props (backward compatible) so it can score against the enroll
+  endpoint. `admin/api.js` gained a `notifyEnrollments` client method. **No new
+  dependencies.**
+
+**Named guardrail test**
+- `tests/enrollment.guardrail.test.js` — pins three invariants: (1) the
+  notification never persists a raw address (the only mutating write is
+  `markNotified(id)`; neither the address nor its hash reaches any repo method,
+  even though the address IS used as the mail `to`); (2) the notify summary is
+  aggregate-only (counts, no per-address/per-individual field); (3) an
+  auto-created assignment carries only routing fields + `assigned_reason` — no
+  credential-shaped column (guardrail #1). Do not weaken or delete.
+
+**Other tests** (all DB-free)
+- `tests/enrollment.service.test.js` — trigger/reason logic, per-campaign
+  strictness, idempotency + race backstop, fail-safe on missing module/campaign,
+  `safeEnroll` swallows errors, the re-simulation hook, and the notify
+  summary/skips (unknown / not_deliverable / no_assignment / already_notified).
+- `tests/enroll.routes.test.js` — GET returns the assignment + module and starts
+  it, POST scores server-side and completes on a pass (no answer key echoed),
+  and the 404/400 edges; pins that the participant id and token never appear in a
+  response.
+- `tests/emailTemplates.test.js` — extended for `renderEnrollmentEmail`
+  (tokened link, non-punitive tone, no form/input, hostile-input escaping).
+- `src/enroll/EnrollView.test.jsx` (frontend) — token parsing, renders the
+  assigned lesson + supportive intro, invalid-link error, and completion via the
+  tokened enroll attempt endpoint (not the anonymous public one).
+
+**Verified**
+- `npm test` → **222 tests pass** (190 backend incl. the three new Phase-8
+  suites + the extended email suite, 32 frontend incl. the new EnrollView suite);
+  frontend production build OK.
+- Against a live Postgres 16: all 9 migrations apply, `\d training_assignments`
+  shows `completion_token` (unique) + `notified_at`, the DB-backed schema test
+  runs (not skipped), and an end-to-end smoke confirmed the full loop —
+  submit → auto-enroll (`submitted_form`, idempotent) → tokened
+  `assigned → in_progress` → quiz pass → `completed` → recommended re-sim date;
+  the notification sends (address used only as the mail `to`), stamps
+  `notified_at`, is idempotent (already_notified), skips
+  unknown/opted-out/completed targets, and **no raw address is ever written to
+  `training_assignments`**.
+
+**Notes for next phase**
+- Phase 9 (analytics dashboard, *Opus 5*) reads the `interactions` behavioral
+  flags for the aggregate four-tier breakdown and can now also report
+  training-completion rates from `training_assignments.status` — **grouped by
+  cohort/department only** (guardrail #5). The per-individual linkage in
+  `training_assignments` exists solely to drive this loop; it must **never**
+  surface in a management-facing view.
+- Unattended enrollment notification is intentionally **not automated** for the
+  same reason as Phase 5 sending: the system stores no roster (guardrail #6), so
+  an admin runs `notify-enrollments` with the roster in hand. The disclosure page
+  remains the guaranteed **immediate** in-band notice; the email is the
+  out-of-band nudge.
+
+## Phase 9 — Analytics dashboard ✅
+
+**Delivered**
+- **Aggregate-only analytics service (`src/services/analytics.js`)** —
+  GUARDRAIL-CRITICAL (guardrail #5). Turns the raw behavioral flags into
+  management/researcher-facing aggregates and **nothing per-individual**. Two
+  invariants make that safe: (1) no identifier is ever emitted — the service
+  consumes only a group dimension + flags/status and returns counts/rates; (2)
+  **small-group suppression (k-anonymity)** — a cohort/department group below
+  `ANALYTICS_MIN_GROUP_SIZE` (default 5, min 2) is never reported with its own
+  counts (a group of one would out that person); such groups collapse into an
+  outcome-free `suppressed: { groups, participants }` summary, and a whole
+  campaign below the threshold has its totals suppressed too. The **four
+  susceptibility tiers** (no action / opened only / clicked only /
+  clicked+submitted) are mutually exclusive by priority (submitted > clicked >
+  opened > none), so they always partition a group's total regardless of flag
+  monotonicity. Exposes `campaignAnalytics` (grouped report: open/click/submission
+  rates + four-tier breakdown + training-completion rollup), `comparison`
+  (phase-over-phase side-by-side per-campaign metrics + rate deltas vs the
+  baseline; a suppressed side yields no delta), and `anonymizedExport` + `toCsv`
+  (an RFC-4180-quoted CSV of the per-group breakdown, reported groups only). All
+  aggregation math (tiers, rates, grouping, suppression) is pure JS in one
+  auditable, unit-testable place.
+- **Identifier-free data access (`src/repositories/analytics.js`)** — two thin
+  queries (`interactionFlagsByCampaign`, `assignmentStatusByCampaign`) that select
+  **only** the group dimension (cohort name / department) + the flags/status —
+  never a participant id, hash, or address. Because no identifying column crosses
+  this boundary, a per-person analytics leak is impossible by construction. One
+  row per interaction/assignment is pulled and aggregated in the service (MVP
+  scale by design; org-wide scale is explicitly deferred). **No migration** — the
+  phase reads the existing Phase 1/5/8 tables; no schema change.
+- **Analytics API (`src/routes/analytics.js`, mounted `/api/analytics`)** —
+  read-only and requires a valid admin session but is **NOT** Program-Admin-gated:
+  either role may read (analysis is the Researcher/Evaluator's core job).
+  `GET /campaigns/:id[?group_by=cohort|department]` (the grouped report; invalid
+  `group_by` → `400`, unknown campaign → `404`),
+  `GET /campaigns/:id/export[?group_by=…&format=csv|json]` (anonymized CSV with a
+  download disposition, or JSON), and
+  `GET /compare?campaign_ids=<id>,<id>,…` (phase-over-phase; empty list → `400`).
+- **Config** — `ANALYTICS_MIN_GROUP_SIZE` (default 5, floored at 2) added to
+  `src/config` and both `.env.example`s.
+- **Frontend** — `src/admin/CampaignAnalytics.jsx`, an aggregate-only panel
+  toggled per campaign from the admin console (`AdminConsole.jsx`, visible to
+  researchers too): overall rates, the four-tier breakdown table grouped by
+  cohort/department (a toggle re-fetches), the training-completion line, and a
+  **visible suppression note** ("N groups / N participants hidden to protect
+  individual privacy") rather than silently dropping small groups. `admin/api.js`
+  gained `campaignAnalytics` / `compareCampaigns` / `analyticsExportPath`. **No
+  new dependencies.**
+
+**Named guardrail test**
+- `tests/analytics.guardrail.test.js` — feeds the service rows that deliberately
+  carry participant ids / contact hashes / a raw address and proves (1) none of
+  them appear anywhere in the emitted report; (2) a single-person cohort is never
+  reported — it survives only as an outcome-free suppressed count, and the
+  reported group's counts/rates are correct aggregates that partition its total;
+  (3) a below-threshold campaign has its totals suppressed too. Do not weaken or
+  delete.
+
+**Other tests** (all DB-free)
+- `tests/analytics.service.test.js` — rate rounding (zero-denominator = 0), tier
+  classification (priority + non-monotonic robustness), `summarizeFlags` /
+  `summarizeAssignments`, grouping by cohort vs department with suppression +
+  stable sort + the `(unspecified)` fallback, the campaign report shape (404 /
+  invalid-`group_by`), comparison deltas + a suppressed side yielding no delta,
+  and the export + CSV quoting.
+- `tests/analytics.routes.test.js` — repositories mocked so the real service runs
+  through the routes: auth gating (401; a researcher **may** read), `group_by`
+  validation, the 404, the CSV export (content-type + download disposition +
+  body) and JSON export, and the compare endpoint (comma-separated ids + the
+  empty-list 400). Asserts no `participant_id` / `email_or_phone_hash` appears in
+  a payload.
+- `src/admin/CampaignAnalytics.test.jsx` + an added `AdminConsole.test.jsx` case
+  — renders rates/tiers/training, surfaces the suppression note, re-fetches on the
+  department toggle, shows the campaign-too-small message, handles a load error,
+  and toggles the panel from the console.
+
+**Verified**
+- `npm test` → **259 tests pass** (221 backend incl. the three new analytics
+  suites, 38 frontend incl. the new CampaignAnalytics suite + the console toggle
+  case); frontend production build OK. The DB-backed schema test skips gracefully
+  with no Postgres, as in prior phases. The two new repository queries were
+  validated to compile to correct Postgres SQL against the existing schema
+  columns (no live DB in this environment; no migration was added).
+
+**Notes for next phase**
+- Phase 10 (Phase II / re-test support, *Sonnet 5*) builds the campaign **clone**
+  (new phase against the same/updated cohort) and the Phase I vs Phase II
+  side-by-side view. The math it needs already exists: `analytics.comparison`
+  returns per-campaign aggregate metrics + baseline deltas, and `campaigns` carry
+  a free-form `phase_label` — Phase 10 wires cloning + a comparison UI on top,
+  keeping everything aggregate-only.
+- Analytics is aggregate-only **by construction** (the repo never fetches an
+  identifier); any new metric must keep that property and route group counts
+  through the same small-group suppression, never bypassing it for a "just this
+  one" per-person number.
+
+## Phase 10 — Phase II / re-test support ✅
+
+**Delivered**
+- **Lineage column (`migrations/20260831120001_add_cloned_from_to_campaigns.js`)**
+  — adds `campaigns.cloned_from_campaign_id`: a nullable, self-referential FK
+  (`ON DELETE SET NULL`, indexed) recording which campaign a clone was derived
+  from (null for an original phase). Set only at clone time, never editable. A
+  clone copies the campaign **definition** only — never its interactions or
+  assignments, which belong to the phase that produced them — so a Phase II
+  campaign starts clean against the same/updated cohort. `SET NULL` keeps a clone
+  (and the research record) intact if an ancestor draft is ever deleted.
+- **Clone + lineage repo helpers (`src/repositories/campaigns.js`)** — `clone`
+  derives a new **draft** campaign from a source (status is never inherited — the
+  schema default applies; `scheduled_send_at` is not copied); `lineage` returns a
+  campaign's whole re-test family (root + all descendants) oldest-first. The core
+  logic is two **pure, unit-tested** functions: `cloneAttrs(source, overrides)`
+  (copies definition, stamps the lineage link, omits status/schedule) and
+  `buildLineage(rows, id)` (walks up to the family root, BFS down over the
+  subtree, orders by `created_at` then id, and is cycle-safe). Family assembly is
+  in JS (MVP scale) mirroring the analytics repo's approach.
+- **Campaign API additions (`src/routes/campaigns.js`)** —
+  `POST /api/campaigns/:id/clone` (**Program Admin only**): clones the source,
+  born 'draft', with optional overrides of name / phase_label / description /
+  enrollment_trigger (`scheduled_send_at` is deliberately not overridable — a
+  re-test is scheduled fresh); rejects an empty name (`400 name_required`) and an
+  invalid `enrollment_trigger` (`400`), unknown source → `404`.
+  `GET /api/campaigns/:id/phases` (**any operator**, read-only): the phase family
+  for the side-by-side view; unknown campaign → `404`. The comparison math itself
+  is the existing aggregate-only `analytics.comparison` / `/api/analytics/compare`
+  from Phase 9 — Phase 10 adds no new analytics surface, so the aggregate-only
+  guardrail (#5) is untouched.
+- **Frontend** — `admin/api.js` gains `cloneCampaign` and `campaignPhases`.
+  `AdminConsole.jsx` gains a **"Clone as new phase"** control (Program Admin only;
+  a small form pre-filled with the source name + a phase-label field) and a
+  **"Compare phases"** toggle (open to researchers too). New
+  `admin/PhaseComparison.jsx` loads the family via `campaignPhases`, feeds the ids
+  to `compareCampaigns`, and renders each phase side by side — open/click/submission
+  rates plus the **percentage-point change vs the baseline** phase for click and
+  submission (a falling submission rate = the training loop working). It inherits
+  the backend's k-anonymity suppression: a phase with too few targets shows
+  "Too few targets to report" and contributes no delta. A one-phase family shows a
+  prompt to clone. **No new dependencies.**
+- **Seed** — the demo now seeds a **Phase II clone** of the baseline campaign
+  (`cloned_from_campaign_id` → Phase I) so the lineage + comparison view has real
+  data locally.
+
+**Tests** (all DB-free)
+- `tests/campaigns.repo.test.js` (new) — the pure helpers: `cloneAttrs` copies the
+  definition, **never** status/schedule/id, always stamps the lineage link,
+  applies overrides, honors a null override, and falls back to null for a missing
+  field; `buildLineage` reconstructs the whole family from any member, orders
+  oldest-first, never mixes in an unrelated campaign, returns a lone campaign as
+  itself, returns `[]` for an unknown id, orders siblings by created_at/id, and
+  terminates on a hand-edited cycle.
+- `tests/campaigns.routes.test.js` (extended) — clone: 201 with overrides / with
+  no overrides / never accepting a `status` override / empty-name 400 /
+  invalid-trigger 400 / unknown 404 / **researcher 403**; phases: family returned,
+  researcher may read, unknown 404, unauthenticated 401.
+- `src/admin/PhaseComparison.test.jsx` (new) + extended `AdminConsole.test.jsx` —
+  loads + compares side by side, marks a falling metric's direction, the
+  single-phase clone prompt, a suppressed phase hiding its metrics, a load error;
+  console-level: cloning refreshes the list, the comparison toggle wires the two
+  calls, and a researcher can compare but has **no** clone control.
+
+**Verified**
+- `npm test` → **291 tests pass** (246 backend incl. the new
+  `campaigns.repo` suite + the extended campaign-route suite; 45 frontend incl.
+  the new `PhaseComparison` suite + two new console cases). Frontend production
+  build OK. The DB-backed schema test skips gracefully with no Postgres, as in
+  prior phases; the new migration is a straightforward `alterTable` validated
+  against the existing schema (no live DB in this environment).
+
+**Notes for next phase**
+- Phase 11 (E2E, security & log audit, pre-launch hardening, *Opus 5*) is the
+  final phase: Playwright E2E of the full loop, the whole-system credential-leak
+  audit (re-run the "no persisted field values" test against the integrated
+  system), email load test, and the campaign **pause/rollback** mechanism (the
+  `paused` status + transitions already exist from Phase 3).
+- Cloning copies **definition only** — if a future phase adds campaign-scoped
+  config, decide deliberately whether it belongs in `cloneAttrs`; never let a
+  clone inherit behavioral data (interactions/assignments) or a live status.
+
+## Phase 11 — E2E testing, security & log audit, pre-launch hardening ✅
+
+**Delivered** (final phase; whole-system audit + hardening)
+- **Campaign pause/rollback (`src/services/campaignState.js`)** — makes pausing a
+  campaign a real rollback. `isCampaignLive(campaign)` is the pure predicate
+  (`status === 'active'`); `isRecordingHalted(interaction)` decides whether NEW
+  behavioral data / enrollment for an interaction must stop because its campaign
+  is paused. Wired into the participant-facing routes: `GET /t/:token` (click +
+  pixel) and `POST /sim/:token` (submit) and the disclosure marker now record a
+  new flag / enroll **only when the campaign is active**. Crucially, the
+  participant-facing behavior is **unchanged** by a pause — the tracked link still
+  redirects to the decoy (token validity never leaks) and the disclosure page
+  still renders (guardrail #4); pausing stops DATA COLLECTION and the enrollment
+  side effect, never the guarantees owed to a participant. The gate is **fail-open**
+  by deliberate design and only here: it governs behavioral flags, not a
+  legal-safety guardrail (those all fail closed), so a transient campaign-lookup
+  hiccup never silently drops a legitimately-active campaign's measurement — a
+  halt is applied only when the campaign is present AND positively reports a
+  non-active status. Enforced again **defense-in-depth** in
+  `services/enrollment.js` (`enrollFromInteraction` returns `campaign_not_active`
+  for a paused campaign; fail-open on an absent status so existing callers/fixtures
+  are unaffected). Sending was already gated on `active` (Phase 5). **No schema
+  change** — pause/rollback rides the existing lifecycle state machine (Phase 3).
+- **In-memory repository layer for whole-system tests
+  (`tests/helpers/memoryRepos.js`)** — a faithful, stateful test double of the
+  repository singletons (using the REAL `lib/hash` + `lib/token`) so an integrated
+  test can `jest.mock('../src/repositories', …)` and drive the REAL app (routes,
+  middleware, logger, services) end to end over HTTP with supertest — no Postgres.
+- **Playwright E2E (`/e2e`)** — browser E2E of the full loop (send via admin API →
+  click + submit the decoy in a real browser → disclosure → auto-enroll → training
+  completion) plus a pause/rollback check. Opaque tracking/completion tokens (and
+  the quiz answer key) are read from the shared DB as an out-of-band **test
+  oracle** — the product still never exposes them (guardrails #5/#7-era Phase-7
+  key-safety). The E2E is intentionally **outside** the root npm workspaces (its
+  own `package.json` + `playwright.config.js`), so root `npm install` / `npm test`
+  stay DB- and browser-free; run it with `npm run test:e2e` against a live stack
+  (see `e2e/README.md`).
+- **Pre-Launch Checklist (`docs/PRE_LAUNCH_CHECKLIST.md`)** — the Dev Guide's
+  checklist walked as a launch gate: every guardrail and hardening item mapped to
+  where it is enforced and the named test that pins it, plus the operator's
+  per-deployment secret/config actions and a pause/rollback runbook.
+
+**Named guardrail / audit tests** (all DB-free, run in CI)
+- `tests/pause.rollback.guardrail.test.js` — a paused campaign records no new
+  click/submit and enrolls no one, while the tracked-link redirect and the
+  disclosure page are unchanged; an active control proves the gate is the only
+  change; defense-in-depth direct call returns `campaign_not_active`; the pure
+  `isCampaignLive` truth table.
+- `tests/system.credential.audit.test.js` — the whole-system credential-leak
+  audit. Drives the integrated loop with credential-shaped values posted to the
+  decoy and a raw address supplied to send/notify, capturing **every** sink —
+  structured logs, console/stdout+stderr, all response bodies AND headers
+  (incl. redirect `Location`), and the persisted store — and proves none contains
+  a submitted value or a raw address (guardrails #1, #2, #6). The literal word
+  "password" is allowed in the RENDERED decoy (it asks for one) but forbidden in
+  logs/console/persisted. Do not weaken or delete.
+- `tests/system.loop.integration.test.js` — the DB-free integrated full loop
+  (send → click → submit → disclosure → auto-enroll → view training → pass quiz →
+  completed → notify) with aggregate-only receipts (guardrail #5) and no persisted
+  address (guardrail #6) asserted inline; plus a failing-quiz path that does not
+  complete.
+- `tests/delivery.loadtest.test.js` — email send over a 1,000-recipient roster:
+  every deliverable target sent once, the throttle applied per send (rate limit
+  honored), heavy-duplicate dedupe (1000 entries → 50 unique), a 10%-failing
+  provider not aborting the batch, and a linear time bound.
+
+**Verified**
+- `npm test` → **303 tests pass** (258 backend incl. the four new Phase-11 suites,
+  45 frontend). All prior guardrail/route tests unchanged and green — the
+  pause/rollback gate is **additive** (older fixtures carry no `campaign_id` /
+  no non-active status, so the fail-open gate leaves their behavior identical).
+  The E2E JS is syntax-checked; it requires a live migrated+seeded stack to run
+  (no Postgres/Playwright browsers in this build environment), documented in
+  `e2e/README.md`.
+
+**Notes**
+- The MVP (Phases 0–11) is complete. Deferred past MVP (per the plan): SMS/smishing
+  delivery, browser extension, org-wide scale, CMS authoring, in-app perception
+  surveys. Unattended scheduled sending / enrollment notification remain
+  intentionally manual because the system stores no roster (guardrail #6).
+- The pause/rollback gate is the one deliberately **fail-open** control in the
+  system; it is scoped to behavioral flags only. If a future change moves any
+  legal-safety decision near it, that decision must fail **closed** as the others
+  do (`consent.js`, the schema invariant, analytics suppression).

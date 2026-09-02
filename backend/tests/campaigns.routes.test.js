@@ -13,6 +13,8 @@ jest.mock('../src/repositories', () => ({
     update: jest.fn(),
     remove: jest.fn(),
     setStatus: jest.fn(),
+    clone: jest.fn(),
+    lineage: jest.fn(),
   },
 }));
 
@@ -146,6 +148,112 @@ describe('lifecycle transitions', () => {
   test('transition on an unknown campaign is 404', async () => {
     campaigns.findById.mockResolvedValue(undefined);
     await request(app()).post('/api/campaigns/none/activate').set(...adminHeader()).expect(404);
+  });
+});
+
+describe('POST /api/campaigns/:id/clone (Phase 10 re-test)', () => {
+  test('clones a campaign as a new draft phase and returns 201', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1', name: 'Baseline', status: 'active' });
+    const cloned = { id: 'k2', name: 'Baseline — Phase II', status: 'draft', cloned_from_campaign_id: 'k1' };
+    campaigns.clone.mockResolvedValue(cloned);
+
+    const res = await request(app())
+      .post('/api/campaigns/k1/clone')
+      .set(...adminHeader())
+      .send({ name: 'Baseline — Phase II', phase_label: 'Phase II' })
+      .expect(201);
+
+    expect(res.body).toEqual({ data: cloned });
+    expect(campaigns.clone).toHaveBeenCalledWith('k1', {
+      name: 'Baseline — Phase II',
+      phase_label: 'Phase II',
+    });
+  });
+
+  test('clones with no overrides (inherits the source definition)', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1', status: 'completed' });
+    campaigns.clone.mockResolvedValue({ id: 'k2', status: 'draft' });
+    await request(app()).post('/api/campaigns/k1/clone').set(...adminHeader()).send({}).expect(201);
+    expect(campaigns.clone).toHaveBeenCalledWith('k1', {});
+  });
+
+  test('never lets the clone override status', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1', status: 'active' });
+    campaigns.clone.mockResolvedValue({ id: 'k2', status: 'draft' });
+    await request(app())
+      .post('/api/campaigns/k1/clone')
+      .set(...adminHeader())
+      .send({ name: 'X', status: 'active' })
+      .expect(201);
+    expect(campaigns.clone).toHaveBeenCalledWith('k1', { name: 'X' });
+  });
+
+  test('rejects an empty override name with 400', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1', status: 'active' });
+    const res = await request(app())
+      .post('/api/campaigns/k1/clone')
+      .set(...adminHeader())
+      .send({ name: '   ' })
+      .expect(400);
+    expect(res.body).toEqual({ error: 'name_required' });
+    expect(campaigns.clone).not.toHaveBeenCalled();
+  });
+
+  test('rejects an invalid enrollment_trigger with 400', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1', status: 'active' });
+    await request(app())
+      .post('/api/campaigns/k1/clone')
+      .set(...adminHeader())
+      .send({ enrollment_trigger: 'whenever' })
+      .expect(400);
+    expect(campaigns.clone).not.toHaveBeenCalled();
+  });
+
+  test('cloning an unknown campaign is 404', async () => {
+    campaigns.findById.mockResolvedValue(undefined);
+    await request(app()).post('/api/campaigns/none/clone').set(...adminHeader()).expect(404);
+    expect(campaigns.clone).not.toHaveBeenCalled();
+  });
+
+  test('a researcher may not clone (403)', async () => {
+    const res = await request(app())
+      .post('/api/campaigns/k1/clone')
+      .set(...researcherHeader())
+      .send({ name: 'X' })
+      .expect(403);
+    expect(res.body).toEqual({ error: 'forbidden' });
+    expect(campaigns.clone).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/campaigns/:id/phases (Phase 10 lineage)', () => {
+  test('returns the phase family for a campaign', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1', status: 'completed' });
+    const family = [
+      { id: 'k1', phase_label: 'Phase I' },
+      { id: 'k2', phase_label: 'Phase II' },
+    ];
+    campaigns.lineage.mockResolvedValue(family);
+
+    const res = await request(app()).get('/api/campaigns/k1/phases').set(...researcherHeader()).expect(200);
+    expect(res.body).toEqual({ data: family });
+    expect(campaigns.lineage).toHaveBeenCalledWith('k1');
+  });
+
+  test('a researcher may read lineage (read-only endpoint)', async () => {
+    campaigns.findById.mockResolvedValue({ id: 'k1' });
+    campaigns.lineage.mockResolvedValue([{ id: 'k1' }]);
+    await request(app()).get('/api/campaigns/k1/phases').set(...researcherHeader()).expect(200);
+  });
+
+  test('lineage of an unknown campaign is 404', async () => {
+    campaigns.findById.mockResolvedValue(undefined);
+    await request(app()).get('/api/campaigns/none/phases').set(...adminHeader()).expect(404);
+    expect(campaigns.lineage).not.toHaveBeenCalled();
+  });
+
+  test('rejects an unauthenticated lineage request', async () => {
+    await request(app()).get('/api/campaigns/k1/phases').expect(401);
   });
 });
 

@@ -11,6 +11,11 @@ dist/
 build/
 coverage/
 
+# Playwright E2E (e2e/) artifacts
+playwright-report/
+test-results/
+.last-run.json
+
 # Logs
 *.log
 npm-debug.log*

@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm --prefix e2e test",
     "lint": "npm run lint --workspaces --if-present",
     "dev:backend": "npm run dev --workspace backend",
     "dev:frontend": "npm run dev --workspace frontend"

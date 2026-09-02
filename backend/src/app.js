@@ -15,6 +15,8 @@ const campaignRoutes = require('./routes/campaigns');
 const simRoutes = require('./routes/sim');
 const trackRoutes = require('./routes/track');
 const learnRoutes = require('./routes/learn');
+const enrollRoutes = require('./routes/enroll');
+const analyticsRoutes = require('./routes/analytics');
 
 function createApp({ logger } = {}) {
   const app = express();
@@ -43,11 +45,25 @@ function createApp({ logger } = {}) {
   // Phase 3 — campaign CRUD skeleton (no sending yet; delivery is Phase 5).
   app.use('/api/campaigns', campaignRoutes);
 
+  // Phase 9 — analytics dashboard. Read-only, admin-authenticated (either role —
+  // analytics is the Researcher/Evaluator's job). Every response is an AGGREGATE
+  // over a cohort/department group with small-group suppression applied by the
+  // service (guardrail #5): no per-individual result is reachable here. The
+  // router applies requireAuth itself (like campaigns).
+  app.use('/api/analytics', analyticsRoutes);
+
   // Phase 6 — CAT platform content. PUBLIC and UNAUTHENTICATED: the learning
   // site is a resource anyone may read (not gated behind failing a sim). Serves
   // published lesson modules + the resource library; read-only, records nothing
   // about who reads what (see routes/learn.js).
   app.use('/api/learn', learnRoutes);
+
+  // Phase 8 — enrollment / training completion. Participant-facing and
+  // UNAUTHENTICATED, reached from the enrollment email by an opaque assignment
+  // token: GET returns the assignment + assigned module (marking it in_progress),
+  // and the quiz-attempt POST scores server-side and marks completion on a pass.
+  // See routes/enroll.js.
+  app.use('/api/enroll', enrollRoutes);
 
   // Phase 5 — interaction tracking. Participant-facing, UNAUTHENTICATED: the
   // tracked link `/t/:token` flips clicked/opened and redirects to the Phase 4

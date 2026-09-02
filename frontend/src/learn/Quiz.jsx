@@ -24,7 +24,16 @@ function ResultBanner({ result, onRetry }) {
   );
 }
 
-export default function Quiz({ slug }) {
+// Props:
+//   slug          – the module whose (published, key-stripped) quiz to load.
+//   submitAnswers – optional override for scoring the attempt, called with the
+//                   dense answer array. Defaults to the public learn endpoint;
+//                   the Phase 8 enroll view passes a variant that also records
+//                   completion against the assignment token. Must resolve to the
+//                   same `{ data: result }` shape.
+//   onResult      – optional callback invoked with the scored result (used by
+//                   the enroll view to reflect completion).
+export default function Quiz({ slug, submitAnswers, onResult }) {
   const [quiz, setQuiz] = useState(null); // null until loaded; false = no quiz
   const [answers, setAnswers] = useState({}); // question index → chosen choice index
   const [result, setResult] = useState(null);
@@ -88,9 +97,14 @@ export default function Quiz({ slug }) {
     const payload = quiz.questions.map((_, i) =>
       Number.isInteger(answers[i]) ? answers[i] : null
     );
-    learnApi
-      .submitQuiz(slug, payload)
-      .then((res) => setResult(res.data))
+    const scorer = submitAnswers
+      ? submitAnswers(payload)
+      : learnApi.submitQuiz(slug, payload);
+    Promise.resolve(scorer)
+      .then((res) => {
+        setResult(res.data);
+        if (typeof onResult === 'function') onResult(res.data);
+      })
       .catch(() => setError('unreachable'))
       .finally(() => setSubmitting(false));
   };

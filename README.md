@@ -55,13 +55,15 @@ sink. Do not weaken or remove it.
 
 ## Build status
 
-Phases 0–7 complete (scaffolding; data model & schema; consent & participant
-management; admin auth + campaign CRUD skeleton; simulated landing page + dummy
-form + disclosure; interaction tracking + campaign delivery; CAT platform —
-lesson modules + resource library; CAT platform — quiz engine + knowledge
-checks). Next: **Phase 8 — automatic enrollment loop**. See
-[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) and
-[`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md).
+**Phases 0–11 complete** — the full MVP (scaffolding; data model & schema;
+consent & participant management; admin auth + campaign CRUD skeleton; simulated
+landing page + dummy form + disclosure; interaction tracking + campaign delivery;
+CAT platform — lesson modules + resource library; CAT platform — quiz engine +
+knowledge checks; automatic enrollment loop; analytics dashboard; Phase II /
+re-test support; **E2E testing, security & log audit, pre-launch hardening**). See
+[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md),
+[`docs/PHASE_LOG.md`](./docs/PHASE_LOG.md), and the launch gate
+[`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md).
 
 Admin console auth is JWT-based (Phase 3). Operators have one of two roles —
 `program_admin` (manages campaigns, cohorts, participants, operators) and
@@ -139,3 +141,87 @@ result). Only quizzes on `published = true` modules are exposed. The named test
 `backend/tests/quiz.answerkey.guardrail.test.js` pins that the answer key never
 leaves the server; do not weaken it. The quiz renders beneath each lesson on the
 frontend `#/learn/<slug>` route.
+
+The automatic enrollment loop (Phase 8) closes the loop from measured
+vulnerability to targeted education. When a participant meets a campaign's
+`enrollment_trigger` — a click (`GET /t/:token`) or, stricter, a simulated-form
+submit (`POST /sim/:token`) — `backend/src/services/enrollment.js` auto-creates a
+`training_assignment` (recording `assigned_reason`, idempotent per
+`(participant, module, campaign)`) linking them to the configured **published**
+module (`ENROLLMENT_MODULE_SLUG`, default `recognizing-phishing`). Enrollment is a
+**best-effort side effect** — it never interrupts the participant's redirect or
+the guaranteed disclosure (guardrail #4). Each assignment mints an opaque
+`completion_token`; the participant-facing, unauthenticated routes under
+`/api/enroll` use it so an enrolled participant can complete **their** assignment
+without a login (the CAT site is otherwise anonymous): `GET /api/enroll/:token`
+returns the assignment + assigned module (advancing `assigned → in_progress`),
+and `POST /api/enroll/:token/quiz/attempt` scores the knowledge check
+**server-side** (the answer key never leaves the server) and marks the assignment
+`completed` on a pass. A Program Admin sends the "you've been enrolled" email with
+`POST /api/campaigns/:id/notify-enrollments`; like delivery, the raw roster is
+supplied **transiently** and gated through `services/consent.js`, used only as the
+mail `to`, and **never persisted** (only `notified_at` is stamped) — the response
+is an aggregate summary only. The named test
+`backend/tests/enrollment.guardrail.test.js` pins that the notification never
+persists a raw address, that the summary is aggregate-only, and that an
+assignment holds no credential-shaped field; do not weaken it. The training
+landing renders on the frontend `#/enroll/<token>` route.
+
+The analytics dashboard (Phase 9) is the aggregate-only reporting surface
+(guardrail #5). Its read-only API lives under `/api/analytics` and is open to
+**any** authenticated operator (researchers included — analysis is their job),
+not just Program Admins: `GET /api/analytics/campaigns/:id` returns the
+susceptibility report — overall open/click/submission rates plus the
+**four-tier breakdown** (no action / opened only / clicked only /
+clicked+submitted) and training-completion rollup — **grouped by cohort or
+department** (`?group_by=cohort|department`); `GET /api/analytics/compare?campaign_ids=a,b`
+is the **phase-over-phase** side-by-side (per-campaign rates + deltas against the
+baseline); and `GET /api/analytics/campaigns/:id/export` streams an **anonymized**
+CSV (or `?format=json`) of the per-group breakdown. Every number is an aggregate:
+`backend/src/services/analytics.js` fetches only the group dimension + behavioral
+flags (never a participant id/hash — see `backend/src/repositories/analytics.js`)
+and applies **small-group suppression** (k-anonymity, `ANALYTICS_MIN_GROUP_SIZE`,
+default 5) so a cohort/department smaller than the threshold is never reported
+with its own counts — it collapses into an outcome-free "N groups / N
+participants hidden" summary, and a whole campaign below the threshold has its
+totals suppressed too. The named test
+`backend/tests/analytics.guardrail.test.js` pins that no identifier reaches the
+output and that small groups are suppressed; do not weaken it. The dashboard
+renders per campaign in the admin console (`#/admin`).
+
+Phase II / re-test support (Phase 10) closes the research loop. A Program Admin
+can **clone** a campaign as a new phase (`POST /api/campaigns/:id/clone`): the
+clone is born `draft`, links back to its source via `cloned_from_campaign_id`,
+and copies only the campaign **definition** — never the source's status,
+schedule, or behavioral data — so a re-test starts clean against the same or an
+updated cohort. `GET /api/campaigns/:id/phases` returns a campaign's whole
+re-test family (original + all clones, oldest-first). The admin console adds a
+"Clone as new phase" control and a **"Compare phases"** panel that lays the phases
+side by side with the percentage-point change in click/submission rate against
+the baseline phase (a falling submission rate is the training loop working). The
+comparison reuses the aggregate-only analytics compare endpoint, so it inherits
+the same k-anonymity suppression — a phase with too few targets contributes no
+per-individual data.
+
+E2E testing, security audit & pre-launch hardening (Phase 11) is the final phase.
+It adds a **campaign pause/rollback** mechanism: while a campaign is not `active`,
+its tracked links record **no new behavioral flags** and trigger **no new
+enrollment** — but the participant still reaches the decoy (token validity never
+leaks) and the disclosure page still renders (guardrail #4). The gate lives in
+`backend/src/services/campaignState.js` (fail-open, since it governs behavioral
+flags — not a legal-safety guardrail — so a transient lookup never drops a live
+campaign's data) and is enforced again, defense-in-depth, in the enrollment
+service; the named test `backend/tests/pause.rollback.guardrail.test.js` pins it.
+The phase re-verifies the whole system: `backend/tests/system.credential.audit.test.js`
+drives the integrated loop and proves no submitted value or raw address escapes
+through logs, console/traces, response bodies + headers, or the persisted store;
+`backend/tests/system.loop.integration.test.js` runs the full send → click →
+submit → disclosure → auto-enroll → training-completion loop over HTTP (DB-free,
+via an in-memory repository layer); and `backend/tests/delivery.loadtest.test.js`
+load-tests email sending over a 1,000-recipient roster with the provider throttle
+honored. A Playwright browser E2E of the same loop (plus a pause/rollback check)
+lives under [`e2e/`](./e2e) — it runs against a live stack (`npm run test:e2e`) and
+is intentionally outside the root workspaces so `npm test` stays DB/browser-free.
+The Dev Guide's pre-launch checklist is walked in
+[`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md), mapping every
+guardrail to where it is enforced and the named test that pins it.

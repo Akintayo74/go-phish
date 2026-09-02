@@ -38,6 +38,8 @@ const config = require('../config');
 const { interactions } = require('../repositories');
 const { asyncHandler } = require('../lib/http');
 const { renderLandingPage, renderDisclosurePage } = require('../views/simPages');
+const { safeEnrollFromInteraction } = require('../services/enrollment');
+const { isRecordingHalted } = require('../services/campaignState');
 
 const router = express.Router();
 
@@ -82,9 +84,19 @@ router.post(
   '/:token',
   asyncHandler(async (req, res) => {
     const interaction = await findInteraction(req.params.token);
-    if (interaction && !interaction.submitted) {
-      // No value argument — there is nothing to persist beyond the boolean.
-      await interactions.markSubmitted(interaction.id);
+    // Phase 11 — pause/rollback: a paused (non-active) campaign records no new
+    // flags and enrolls no one. The posted values are discarded regardless
+    // (guardrail #1), and the redirect to disclosure below is UNCHANGED so the
+    // participant always reaches the transparency page (guardrail #4).
+    if (interaction && !(await isRecordingHalted(interaction))) {
+      const updated = interaction.submitted
+        ? interaction
+        : // No value argument — there is nothing to persist beyond the boolean.
+          (await interactions.markSubmitted(interaction.id)) || interaction;
+      // Phase 8 — auto-enroll into training. A submit always meets the trigger
+      // (whether the campaign enrolls on click or submit). Best-effort: never
+      // let enrollment break the redirect to disclosure (guardrail #4).
+      await safeEnrollFromInteraction(updated);
     }
     // 303 → force a GET on the disclosure page after the POST (and never echo
     // the submitted body back to the client).
@@ -98,7 +110,10 @@ router.get(
   '/:token/disclosure',
   asyncHandler(async (req, res) => {
     const interaction = await findInteraction(req.params.token);
-    if (interaction && !interaction.disclosed) {
+    // The disclosure page ALWAYS renders (guardrail #4), even for an unknown
+    // token or a paused campaign. Recording that disclosure was reached is a new
+    // write, so it obeys the pause/rollback gate like the other flags.
+    if (interaction && !interaction.disclosed && !(await isRecordingHalted(interaction))) {
       await interactions.markDisclosed(interaction.id);
     }
     const html = renderDisclosurePage({

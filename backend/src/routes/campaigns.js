@@ -20,6 +20,7 @@ const { asyncHandler, badRequest, notFound, HttpError } = require('../lib/http')
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { ROLES } = require('../lib/roles');
 const { sendCampaign } = require('../services/delivery');
+const { notifyEnrollments } = require('../services/enrollment');
 
 const router = express.Router();
 
@@ -50,6 +51,25 @@ function pickWritable(body = {}) {
   }
   if (body.scheduled_send_at !== undefined) {
     attrs.scheduled_send_at = body.scheduled_send_at;
+  }
+  return attrs;
+}
+
+// Fields a clone may override (Phase 10). A clone carries the source's
+// definition by default; the admin may retitle it and relabel the phase. Note
+// `scheduled_send_at` is intentionally NOT overridable here — a re-test is
+// scheduled fresh through the normal edit/schedule flow, never inherited.
+function pickCloneOverrides(body = {}) {
+  const attrs = {};
+  if (body.name !== undefined) attrs.name = String(body.name).trim();
+  if (body.description !== undefined) {
+    attrs.description = body.description === null ? null : String(body.description);
+  }
+  if (body.phase_label !== undefined) {
+    attrs.phase_label = body.phase_label === null ? null : String(body.phase_label);
+  }
+  if (body.enrollment_trigger !== undefined) {
+    attrs.enrollment_trigger = body.enrollment_trigger;
   }
   return attrs;
 }
@@ -98,6 +118,18 @@ router.get(
   })
 );
 
+// Phase lineage (Phase 10): this campaign's whole re-test family — the original
+// phase plus every clone descended from it — ordered oldest-first. Feeds the
+// side-by-side Phase I vs Phase II comparison view. Read-only, any operator.
+router.get(
+  '/:id/phases',
+  asyncHandler(async (req, res) => {
+    await loadCampaign(req.params.id);
+    const rows = await campaigns.lineage(req.params.id);
+    res.json({ data: rows });
+  })
+);
+
 // --- Writes: Program Admin only -------------------------------------------
 router.use(requireRole(ROLES.PROGRAM_ADMIN));
 
@@ -110,6 +142,24 @@ router.post(
     if (!attrs.name) throw badRequest('name_required');
     validateEnrollmentTrigger(attrs.enrollment_trigger);
     const row = await campaigns.create(attrs);
+    res.status(201).json({ data: row });
+  })
+);
+
+// Clone a campaign as a new phase / re-test (Phase 10). Program Admin only.
+// The new campaign is born 'draft' (its status is never inherited), carries a
+// `cloned_from_campaign_id` link back to the source, and copies only the
+// campaign definition — never the source's interactions or assignments, which
+// belong to the phase that produced them. The admin may retitle it and relabel
+// the phase (e.g. 'Phase I' → 'Phase II'); anything not overridden is inherited.
+router.post(
+  '/:id/clone',
+  asyncHandler(async (req, res) => {
+    await loadCampaign(req.params.id);
+    const overrides = pickCloneOverrides(req.body);
+    if (overrides.name !== undefined && !overrides.name) throw badRequest('name_required');
+    validateEnrollmentTrigger(overrides.enrollment_trigger);
+    const row = await campaigns.clone(req.params.id, overrides);
     res.status(201).json({ data: row });
   })
 );
@@ -163,6 +213,28 @@ router.post(
       campaignId: req.params.id,
       recipients: body.recipients,
       resend: body.resend === true,
+    });
+    res.json({ data: summary });
+  })
+);
+
+// Notify auto-enrolled participants by email (Phase 8). Program Admin only. The
+// automatic enrollment loop creates the assignments off the participant's
+// click/submit; this endpoint sends the "you've been enrolled" email with the
+// tokened training link. Like `/send`, the admin supplies the raw addresses
+// transiently in the body (the system stores only hashes — guardrail #6); the
+// service hashes each to match a stored participant, gates every one through
+// consent (guardrail #3), never persists an address, and returns an AGGREGATE
+// summary only (guardrail #5). The body is excluded from logs by the global
+// logger (guardrail #2).
+router.post(
+  '/:id/notify-enrollments',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    if (!Array.isArray(body.recipients)) throw badRequest('recipients_required');
+    const summary = await notifyEnrollments({
+      campaignId: req.params.id,
+      recipients: body.recipients,
     });
     res.json({ data: summary });
   })

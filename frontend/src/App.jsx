@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminConsole from './admin/AdminConsole.jsx';
 import LearningSite from './learn/LearningSite.jsx';
+import EnrollView from './enroll/EnrollView.jsx';
 
 // App shell. A tiny hash-based switch (no router dependency yet) selects between
 // the public landing view, the Phase 3 admin console at #/admin, and the public
@@ -51,9 +52,11 @@ export default function App() {
   const hash = useHashRoute();
   const isAdmin = hash === '#/admin';
   const isLearn = hash === '#/learn' || hash.startsWith('#/learn/');
+  const isEnroll = hash.startsWith('#/enroll/');
 
   let view;
   if (isAdmin) view = <AdminConsole />;
+  else if (isEnroll) view = <EnrollView hash={hash} />;
   else if (isLearn) view = <LearningSite hash={hash} />;
   else view = <Landing />;
 

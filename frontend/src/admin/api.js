@@ -56,9 +56,41 @@ export const api = {
   createCampaign: (attrs) => request('/campaigns', { method: 'POST', body: attrs }),
   campaignTransition: (id, action) =>
     request(`/campaigns/${id}/${action}`, { method: 'POST' }),
+  // Phase 10 — clone a campaign as a new re-test phase. The new campaign is born
+  // 'draft', links back to the source, and copies only the definition (never the
+  // source's interactions). `attrs` may override name / phase_label / description
+  // / enrollment_trigger; omit to inherit the source.
+  cloneCampaign: (id, attrs = {}) =>
+    request(`/campaigns/${id}/clone`, { method: 'POST', body: attrs }),
+  // Phase 10 — the campaign's whole re-test family (original + all clones),
+  // oldest-first, for the Phase I vs Phase II side-by-side comparison view.
+  campaignPhases: (id) => request(`/campaigns/${id}/phases`),
   // Phase 5 — manual "send now". `recipients` is the raw address roster held by
   // the admin; it is sent transiently and never stored by the backend. Returns
   // an aggregate delivery summary.
   sendCampaign: (id, recipients, { resend = false } = {}) =>
     request(`/campaigns/${id}/send`, { method: 'POST', body: { recipients, resend } }),
+  // Phase 8 — notify auto-enrolled participants by email. Like `sendCampaign`,
+  // `recipients` is the raw roster held by the admin, sent transiently and never
+  // stored. Returns an aggregate notification summary.
+  notifyEnrollments: (id, recipients) =>
+    request(`/campaigns/${id}/notify-enrollments`, { method: 'POST', body: { recipients } }),
+
+  // Phase 9 — analytics dashboard. Aggregate-only (guardrail #5): every response
+  // is grouped by cohort/department with small groups suppressed server-side —
+  // there is no per-individual result to fetch. `groupBy` is 'cohort' (default)
+  // or 'department'.
+  campaignAnalytics: (id, groupBy = 'cohort') =>
+    request(`/analytics/campaigns/${id}?group_by=${encodeURIComponent(groupBy)}`),
+  // Phase-over-phase comparison of several campaigns (side-by-side rates + deltas).
+  compareCampaigns: (ids) =>
+    request(`/analytics/compare?campaign_ids=${ids.map(encodeURIComponent).join(',')}`),
 };
+
+// The URL of the anonymized CSV export (a plain GET the browser can download).
+// Aggregate-only, small groups suppressed — no per-individual data. The bearer
+// token is a header credential, so a raw <a href> download can't carry it; the
+// UI fetches with auth and saves the blob instead (see CampaignAnalytics).
+export function analyticsExportPath(id, groupBy = 'cohort') {
+  return `/api/analytics/campaigns/${id}/export?group_by=${encodeURIComponent(groupBy)}&format=csv`;
+}

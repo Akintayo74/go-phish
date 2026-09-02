@@ -16,6 +16,10 @@ vi.mock('./api.js', () => {
       listCampaigns: vi.fn(),
       createCampaign: vi.fn(),
       campaignTransition: vi.fn(),
+      campaignAnalytics: vi.fn(),
+      cloneCampaign: vi.fn(),
+      campaignPhases: vi.fn(),
+      compareCampaigns: vi.fn(),
     },
   };
 });
@@ -83,6 +87,140 @@ describe('AdminConsole', () => {
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('active'));
     expect(api.campaignTransition).toHaveBeenCalledWith('k1', 'activate');
+  });
+
+  it('toggles the aggregate analytics panel for a campaign', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'admin@example.test', role: 'program_admin' },
+    });
+    api.listCampaigns.mockResolvedValue({
+      data: [{ id: 'k1', name: 'Baseline', status: 'active' }],
+    });
+    api.campaignAnalytics.mockResolvedValue({
+      data: {
+        campaign: { id: 'k1', name: 'Baseline', phase_label: null, status: 'active' },
+        group_by: 'cohort',
+        min_group_size: 5,
+        interactions: {
+          total_participants: 0,
+          totals_suppressed: false,
+          totals: {
+            total: 0,
+            opened: 0,
+            clicked: 0,
+            submitted: 0,
+            open_rate: 0,
+            click_rate: 0,
+            submission_rate: 0,
+            tiers: { no_action: 0, opened_only: 0, clicked_only: 0, clicked_submitted: 0 },
+          },
+          groups: [],
+          suppressed: { groups: 0, participants: 0 },
+        },
+        training: {
+          total_participants: 0,
+          totals_suppressed: false,
+          totals: null,
+          groups: [],
+          suppressed: { groups: 0, participants: 0 },
+        },
+      },
+    });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /^analytics$/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign-analytics')).toBeInTheDocument());
+    expect(api.campaignAnalytics).toHaveBeenCalledWith('k1', 'cohort');
+  });
+
+  it('clones a campaign as a new phase (Phase 10)', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'admin@example.test', role: 'program_admin' },
+    });
+    api.listCampaigns.mockResolvedValue({
+      data: [{ id: 'k1', name: 'Baseline', status: 'completed' }],
+    });
+    api.cloneCampaign.mockResolvedValue({
+      data: { id: 'k2', name: 'Baseline', status: 'draft', cloned_from_campaign_id: 'k1' },
+    });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /clone as new phase/i }));
+
+    fireEvent.change(screen.getByLabelText(/clone phase label/i), {
+      target: { value: 'Phase II' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /create clone/i }));
+
+    await waitFor(() =>
+      expect(api.cloneCampaign).toHaveBeenCalledWith('k1', {
+        name: 'Baseline',
+        phase_label: 'Phase II',
+      })
+    );
+    // The list is refreshed after a successful clone.
+    expect(api.listCampaigns).toHaveBeenCalledTimes(2);
+  });
+
+  it('toggles the phase comparison panel for a campaign (Phase 10)', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'r@example.test', role: 'researcher' },
+    });
+    api.listCampaigns.mockResolvedValue({
+      data: [{ id: 'k1', name: 'Baseline', status: 'completed' }],
+    });
+    api.campaignPhases.mockResolvedValue({ data: [{ id: 'k1' }, { id: 'k2' }] });
+    api.compareCampaigns.mockResolvedValue({
+      data: {
+        min_group_size: 5,
+        baseline_campaign_id: 'k1',
+        campaigns: [
+          {
+            campaign: { id: 'k1', name: 'Baseline', phase_label: 'Phase I', status: 'completed' },
+            total_participants: 10,
+            suppressed: false,
+            metrics: { open_rate: 0.8, click_rate: 0.5, submission_rate: 0.3, tiers: {} },
+          },
+          {
+            campaign: { id: 'k2', name: 'Baseline', phase_label: 'Phase II', status: 'active' },
+            total_participants: 10,
+            suppressed: false,
+            metrics: { open_rate: 0.7, click_rate: 0.3, submission_rate: 0.1, tiers: {} },
+          },
+        ],
+        deltas: [
+          { campaign_id: 'k2', open_rate_delta: -0.1, click_rate_delta: -0.2, submission_rate_delta: -0.2 },
+        ],
+      },
+    });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'r@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /compare phases/i }));
+
+    await waitFor(() => expect(screen.getByTestId('phase-comparison')).toBeInTheDocument());
+    expect(api.campaignPhases).toHaveBeenCalledWith('k1');
+    expect(api.compareCampaigns).toHaveBeenCalledWith(['k1', 'k2']);
+    // A researcher (read-only) can still compare, but cannot clone.
+    expect(screen.queryByRole('button', { name: /clone as new phase/i })).not.toBeInTheDocument();
   });
 
   it('a researcher gets a read-only view (no create form, no controls)', async () => {
