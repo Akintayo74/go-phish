@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
 import CampaignAnalytics from './CampaignAnalytics.jsx';
 import PhaseComparison from './PhaseComparison.jsx';
+import SendPanel from './SendPanel.jsx';
 
-// Minimal admin console shell (Phase 3). Login → campaign list with create and
-// lifecycle controls. Delivery is Phase 5; nothing here sends anything. Write
-// controls are shown only to Program Admins — Researchers get read-only view,
-// mirroring the backend role gating.
+// Minimal admin console shell (Phase 3). Login → campaign list with create,
+// lifecycle, delivery and analytics controls. Write controls (create, clone,
+// lifecycle, send) are shown only to Program Admins — Researchers get a
+// read-only view, mirroring the backend role gating.
 
 const PROGRAM_ADMIN = 'program_admin';
 
@@ -187,6 +188,7 @@ function CampaignList({
   canWrite,
   onTransition,
   onCloned,
+  onSent,
   analyticsFor,
   onToggleAnalytics,
   comparisonFor,
@@ -222,6 +224,7 @@ function CampaignList({
             {comparisonFor === c.id ? 'Hide phases' : 'Compare phases'}
           </button>
           {canWrite && <CloneCampaign campaign={c} onCloned={onCloned} />}
+          {canWrite && <SendPanel campaign={c} onSent={onSent} />}
           {analyticsFor === c.id && <CampaignAnalytics campaignId={c.id} />}
           {comparisonFor === c.id && <PhaseComparison campaignId={c.id} />}
         </li>
@@ -326,6 +329,7 @@ export default function AdminConsole() {
         canWrite={canWrite}
         onTransition={handleTransition}
         onCloned={refresh}
+        onSent={refresh}
         analyticsFor={analyticsFor}
         onToggleAnalytics={toggleAnalytics}
         comparisonFor={comparisonFor}
