@@ -16,9 +16,9 @@ Legend: ✅ built & tested · 🔧 operator action required per deployment.
 |---|---|---|---|
 | 1 | **No real credentials, ever.** `interactions` has no column able to hold a submitted value; the form handler never reads `req.body`; `markSubmitted` takes no value argument. | `migrations/…_create_interactions.js`, `routes/sim.js`, `repositories/interactions.js` | `schema.interactions.guardrail`, `schema.db`, `sim.form.guardrail`, **`system.credential.audit`** |
 | 2 | **POST bodies excluded from logs** (globally). | `middleware/requestLogger.js` | `logging`, **`system.credential.audit`** |
-| 3 | **Consent-gated delivery.** Every target routes through the single `isDeliverable` predicate; fail-closed. | `services/consent.js`, `services/delivery.js`, `services/enrollment.js` | `consent.guardrail`, `delivery.guardrail`, `enrollment.guardrail` |
+| 3 | **Consent-gated delivery.** Every target routes through the single `isDeliverable` predicate; fail-closed. Consent itself moves only through the two transition endpoints, and only for a Program Admin. | `services/consent.js`, `services/delivery.js`, `services/enrollment.js`, `routes/cohorts.js`, `routes/participants.js` | `consent.guardrail`, `delivery.guardrail`, `enrollment.guardrail`, **`consent.authz.guardrail`** |
 | 4 | **Transparency / disclosure.** Every simulated interaction ends at a disclosure page — shown even for an unknown token and even when the campaign is paused. | `routes/sim.js`, `views/simPages.js` | `sim.routes`, `sim.form.guardrail`, **`pause.rollback.guardrail`** |
-| 5 | **Aggregate-only reporting.** No per-individual result in any management view; k-anonymity suppression on small groups; send/notify receipts are counts only. | `services/analytics.js`, `repositories/analytics.js`, `services/delivery.js`, `services/enrollment.js` | `analytics.guardrail`, `delivery.guardrail`, `enrollment.guardrail`, **`system.loop.integration`** |
+| 5 | **Aggregate-only reporting.** No per-individual result in any management view; k-anonymity suppression on small groups; send/notify receipts are counts only. The participant roster is deliberately never joined to `interactions`. | `services/analytics.js`, `repositories/analytics.js`, `services/delivery.js`, `services/enrollment.js`, `frontend/src/admin/ParticipantRoster.jsx` | `analytics.guardrail`, `delivery.guardrail`, `enrollment.guardrail`, `ParticipantRoster` (frontend), **`system.loop.integration`** |
 | 6 | **Data minimization.** Only a keyed hash of a contact is stored; raw addresses supplied transiently and never persisted. | `lib/hash.js`, `repositories/participants.js`, `services/delivery.js`, `services/enrollment.js` | `delivery.guardrail`, `enrollment.guardrail`, **`system.credential.audit`** |
 
 All six re-verified against the **integrated** system in Phase 11 — see
@@ -109,6 +109,19 @@ The dev defaults are insecure placeholders and MUST be overridden in production:
 - ✅ Consent is captured at the **cohort** level and is the only gate to delivery;
   individual **opt-out** is always honored. *Tests:* `consent.guardrail`,
   `cohorts.routes`, `participants.routes`.
+- ✅ **Consent is manageable without a database client.** The admin console's
+  *Cohorts & consent* area shows each cohort's consent state and head count,
+  and carries the grant / withdraw transitions behind a confirmation that
+  names how many people the change affects. *Tests:* `ConsentControl`,
+  `CohortPanel` (frontend).
+- ✅ **An individual opt-out is performable by the operator.** Participants are
+  pseudonymous, so the console resolves a raw address to its participant row
+  (`POST /api/participants/lookup`, body not query, never echoed) and offers
+  opt-out on the match. *Tests:* `participants.routes`, `ParticipantRoster`
+  (frontend).
+- ✅ **Only a Program Admin may move consent or the roster.** A Researcher
+  session is read-only on both routers, enforced server-side rather than by
+  hiding console controls. *Test:* **`consent.authz.guardrail`**.
 - ✅ Stored data is minimized to role/department/cohort + behavioral flags +
   timestamps; no raw PII, no submitted values. *Tests:* `schema.db`,
   `delivery.guardrail`.

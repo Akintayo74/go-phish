@@ -85,6 +85,39 @@ export const api = {
   // Phase-over-phase comparison of several campaigns (side-by-side rates + deltas).
   compareCampaigns: (ids) =>
     request(`/analytics/compare?campaign_ids=${ids.map(encodeURIComponent).join(',')}`),
+
+  // --- Cohorts & consent ---------------------------------------------------
+  // Consent is cohort-level and is the single gate on delivery (guardrail #3).
+  // Note there is no `updateCohort({ consent_status })`: the backend refuses to
+  // set it through PATCH, so consent moves only through the two explicit
+  // transitions below. Keeping that shape in the client too means there is no
+  // client-side way to express "set consent to granted" as an ordinary edit.
+  listCohorts: () => request('/cohorts'),
+  createCohort: (attrs) => request('/cohorts', { method: 'POST', body: attrs }),
+  updateCohort: (id, attrs) => request(`/cohorts/${id}`, { method: 'PATCH', body: attrs }),
+  deleteCohort: (id) => request(`/cohorts/${id}`, { method: 'DELETE' }),
+  grantCohortConsent: (id) => request(`/cohorts/${id}/consent/grant`, { method: 'POST' }),
+  withdrawCohortConsent: (id) => request(`/cohorts/${id}/consent/withdraw`, { method: 'POST' }),
+
+  // --- Participants --------------------------------------------------------
+  // `cohortId` is optional; omit it for the whole roster.
+  listParticipants: (cohortId) =>
+    request(cohortId ? `/participants?cohort_id=${encodeURIComponent(cohortId)}` : '/participants'),
+  // `identifier` is a RAW email/phone. It is hashed by the backend on write and
+  // never stored (guardrail #6) — treat it here the way SendPanel treats its
+  // roster: transient, component state only, dropped once submitted.
+  createParticipant: (attrs) => request('/participants', { method: 'POST', body: attrs }),
+  updateParticipant: (id, attrs) =>
+    request(`/participants/${id}`, { method: 'PATCH', body: attrs }),
+  deleteParticipant: (id) => request(`/participants/${id}`, { method: 'DELETE' }),
+  participantOptOut: (id) => request(`/participants/${id}/opt-out`, { method: 'POST' }),
+  participantOptIn: (id) => request(`/participants/${id}/opt-in`, { method: 'POST' }),
+  // Resolve a raw address to the participant it was enrolled as, so an operator
+  // holding an opt-out request can act on it. POST (not a query string) so the
+  // address stays in a body the request logger never reads. The response is the
+  // participant row — no behavioural data, by design.
+  lookupParticipant: (identifier) =>
+    request('/participants/lookup', { method: 'POST', body: { identifier } }),
 };
 
 // The URL of the anonymized CSV export (a plain GET the browser can download).

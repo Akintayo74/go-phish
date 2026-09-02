@@ -22,6 +22,22 @@ vi.mock('./api.js', () => {
       compareCampaigns: vi.fn(),
       sendCampaign: vi.fn(),
       notifyEnrollments: vi.fn(),
+      // Gap 3 — cohorts, participants and consent. The api client is mocked
+      // wholesale here, so anything CohortPanel/ParticipantRoster can reach
+      // must exist on the mock or those panels throw on mount.
+      listCohorts: vi.fn(),
+      createCohort: vi.fn(),
+      updateCohort: vi.fn(),
+      deleteCohort: vi.fn(),
+      grantCohortConsent: vi.fn(),
+      withdrawCohortConsent: vi.fn(),
+      listParticipants: vi.fn(),
+      createParticipant: vi.fn(),
+      updateParticipant: vi.fn(),
+      deleteParticipant: vi.fn(),
+      participantOptOut: vi.fn(),
+      participantOptIn: vi.fn(),
+      lookupParticipant: vi.fn(),
     },
   };
 });
@@ -267,6 +283,65 @@ describe('AdminConsole', () => {
     expect(send).toBeInTheDocument();
     fireEvent.click(send);
     expect(screen.getByLabelText('recipient addresses')).toBeInTheDocument();
+  });
+
+  it('switches to the cohorts & consent area and back (Gap 3)', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'admin@example.test', role: 'program_admin' },
+    });
+    api.listCampaigns.mockResolvedValue({
+      data: [{ id: 'k1', name: 'Baseline', status: 'active' }],
+    });
+    api.listCohorts.mockResolvedValue({
+      data: [{ id: 'co1', name: 'Retail Ops', consent_status: 'pending' }],
+    });
+    api.listParticipants.mockResolvedValue({ data: [] });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+    // Campaigns is the default area; cohorts is not fetched until asked for.
+    expect(api.listCohorts).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cohorts & consent' }));
+
+    await waitFor(() => expect(screen.getByTestId('cohort-panel')).toBeInTheDocument());
+    expect(screen.getByText('Retail Ops')).toBeInTheDocument();
+    expect(screen.queryByTestId('campaign')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Campaigns' }));
+    await waitFor(() => expect(screen.getByTestId('campaign')).toBeInTheDocument());
+  });
+
+  it('a researcher reaches the cohorts area but gets no consent controls', async () => {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'r@example.test', role: 'researcher' },
+    });
+    api.listCampaigns.mockResolvedValue({ data: [] });
+    api.listCohorts.mockResolvedValue({
+      data: [{ id: 'co1', name: 'Retail Ops', consent_status: 'granted' }],
+    });
+    api.listParticipants.mockResolvedValue({ data: [] });
+
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'r@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cohorts & consent' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Cohorts & consent' }));
+
+    await waitFor(() => expect(screen.getByTestId('cohort-panel')).toBeInTheDocument());
+    // Consent state is readable — it is needed to interpret a report — but the
+    // transitions are Program Admin only on the backend too (consent.authz.guardrail).
+    expect(screen.getByTestId('consent-status')).toHaveTextContent('Consent granted');
+    expect(screen.queryByRole('button', { name: 'Withdraw consent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'create cohort' })).not.toBeInTheDocument();
   });
 
   it('surfaces an invalid-credentials error', async () => {
