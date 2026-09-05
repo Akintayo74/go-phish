@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { color, radius, type, tabular } from '../ui/theme.js';
+import { Card, Button, Field, Input, Note, QuietNote } from '../ui/primitives.jsx';
 import ConsentControl, { ConsentBadge } from './ConsentControl.jsx';
 import ParticipantRoster, { rosterSummary } from './ParticipantRoster.jsx';
 
@@ -13,6 +15,24 @@ import ParticipantRoster, { rosterSummary } from './ParticipantRoster.jsx';
 // A cohort is always born 'pending' — the backend refuses consent_status on
 // create, so there is no "create an already-consented cohort" path to build a
 // form for. Consent is a separate, deliberate act; see ConsentControl.
+//
+// Layout follows the console's campaign card (AdminConsole): one card per
+// cohort built from the shared primitives, a header that carries the name and
+// its consent state, and a single horizontal action row rather than a stack of
+// full-width buttons. Consent state is the thing an operator scans for, so it
+// also drives a left accent rule on the card — granted, pending and withdrawn
+// cohorts are told apart at a glance instead of reading as one flat list.
+
+const errorStyle = { margin: 0, color: color.danger, fontSize: 13, lineHeight: 1.5 };
+
+// The left rule + its wash key each card to its consent state. This is the
+// at-a-glance hierarchy between cohorts: consent is what the whole panel is
+// about, so it is what differentiates one card from the next.
+const CONSENT_ACCENT = {
+  granted: { rule: color.success, wash: '#f2f7f4' },
+  withdrawn: { rule: color.warning, wash: '#faf5ec' },
+  pending: { rule: color.borderStrong, wash: color.surfaceRaised },
+};
 
 // Per-cohort roster counts, derived from one whole-roster fetch. Counts are
 // aggregate (guardrail #5) and are what make the consent decision legible: the
@@ -66,42 +86,51 @@ function CreateCohort({ onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} aria-label="create cohort">
-      <h3>New cohort</h3>
-      <label>
-        Name
-        <input
+    <Card
+      as="form"
+      raised
+      onSubmit={submit}
+      aria-label="create cohort"
+      style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+    >
+      <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>New cohort</h3>
+      <Field label="Name" htmlFor="new-cohort-name">
+        <Input
+          id="new-cohort-name"
           aria-label="cohort name"
           placeholder="e.g. Retail Operations"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
-      </label>
-      <label>
-        Description
-        <input
+      </Field>
+      <Field label="Description" optional htmlFor="new-cohort-description">
+        <Input
+          id="new-cohort-description"
           aria-label="cohort description"
           placeholder="Scope of this group (optional)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </label>
-      <p role="note">
+      </Field>
+      <Note>
         New cohorts start with consent pending. Nothing can be delivered to them until consent is
         granted as a separate, deliberate step.
-      </p>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy || name.trim() === ''}>
+      </Note>
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
+      <Button type="submit" variant="primary" disabled={busy || name.trim() === ''} style={{ alignSelf: 'flex-start' }}>
         {busy ? 'Creating…' : 'Create cohort'}
-      </button>
-    </form>
+      </Button>
+    </Card>
   );
 }
 
 // Edit a cohort's metadata. Consent is pointedly NOT here: the backend refuses
 // consent_status on PATCH, so there is nothing to render for it and no way to
 // change consent by mistake while renaming a group.
+//
+// Closed, this is one bordered button in the action row; open, the form breaks
+// to its own full-width line (flexBasis:100% inside the wrapping row).
 function EditCohort({ cohort, onSaved }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(cohort.name);
@@ -133,40 +162,63 @@ function EditCohort({ cohort, onSaved }) {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} aria-label={`edit cohort ${cohort.name}`}>
+      <Button type="button" variant="secondary" onClick={() => setOpen(true)} aria-label={`edit cohort ${cohort.name}`}>
         Edit
-      </button>
+      </Button>
     );
   }
 
   return (
-    <form onSubmit={submit} aria-label={`edit cohort ${cohort.name}`}>
-      <input
-        aria-label="edited cohort name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-      />
-      <input
-        aria-label="edited cohort description"
-        placeholder="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy || name.trim() === ''}>
-        {busy ? 'Saving…' : 'Save'}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} disabled={busy}>
-        Cancel
-      </button>
+    <form
+      onSubmit={submit}
+      aria-label={`edit cohort ${cohort.name}`}
+      style={{
+        flexBasis: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        background: color.surfaceRecessed,
+        border: `1px solid ${color.borderSubtle}`,
+        borderRadius: radius.nested,
+        padding: 16,
+      }}
+    >
+      <Field label="Name" htmlFor={`edit-cohort-name-${cohort.id}`}>
+        <Input
+          id={`edit-cohort-name-${cohort.id}`}
+          aria-label="edited cohort name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </Field>
+      <Field label="Description" optional htmlFor={`edit-cohort-description-${cohort.id}`}>
+        <Input
+          id={`edit-cohort-description-${cohort.id}`}
+          aria-label="edited cohort description"
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </Field>
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button type="submit" variant="primary" disabled={busy || name.trim() === ''}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
 
 // Deleting a cohort is refused by the backend while it still has participants
 // (the FK is ON DELETE RESTRICT), which is the behaviour we want — surface that
-// refusal plainly rather than as a generic failure.
+// refusal plainly rather than as a generic failure. Delete is the quietest
+// control on the card: a bordered button whose label is warm-toned, never an
+// ink or accent fill.
 function DeleteCohort({ cohort, onDeleted }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -193,28 +245,104 @@ function DeleteCohort({ cohort, onDeleted }) {
   if (!confirming) {
     return (
       <>
-        {error && <p role="alert">{error}</p>}
-        <button
+        {error && <p role="alert" style={{ ...errorStyle, flexBasis: '100%' }}>{error}</p>}
+        <Button
           type="button"
+          variant="secondary"
           onClick={() => setConfirming(true)}
           aria-label={`delete cohort ${cohort.name}`}
+          style={{ color: color.danger }}
         >
           Delete
-        </button>
+        </Button>
       </>
     );
   }
 
   return (
-    <span role="group" aria-label={`confirm deletion of cohort ${cohort.name}`}>
-      {error && <p role="alert">{error}</p>}
-      <button type="button" onClick={remove} disabled={busy}>
-        {busy ? 'Deleting…' : 'Yes, delete cohort'}
-      </button>
-      <button type="button" onClick={() => setConfirming(false)} disabled={busy}>
-        Cancel
-      </button>
-    </span>
+    <div
+      role="group"
+      aria-label={`confirm deletion of cohort ${cohort.name}`}
+      style={{
+        flexBasis: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        background: color.dangerWash,
+        border: `1px solid ${color.borderSubtle}`,
+        borderRadius: radius.nested,
+        padding: 16,
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: color.textBody }}>
+        Deleting “{cohort.name}” cannot be undone. A cohort that still has participants cannot be
+        deleted — remove them first.
+      </p>
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button type="button" variant="danger" onClick={remove} disabled={busy}>
+          {busy ? 'Deleting…' : 'Yes, delete cohort'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function CohortCard({ cohort, summary, canWrite, open, onToggleRoster, onChanged }) {
+  const accent = CONSENT_ACCENT[cohort.consent_status] || CONSENT_ACCENT.pending;
+  return (
+    <Card
+      as="li"
+      raised
+      data-testid="cohort"
+      style={{
+        listStyle: 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        borderLeft: `3px solid ${accent.rule}`,
+        background: accent.wash,
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ ...type.rowTitle, color: color.ink }}>{cohort.name}</strong>
+          <ConsentBadge cohort={cohort} />
+        </div>
+        <span data-testid="cohort-counts" style={{ fontSize: 13, color: color.textMuted, ...tabular }}>
+          {summary.total} participant{summary.total === 1 ? '' : 's'} · {summary.deliverable} deliverable
+          {summary.optedOut > 0 && <> · {summary.optedOut} opted out</>}
+        </span>
+      </div>
+
+      {cohort.description && (
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: color.textSecondary }}>{cohort.description}</p>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-expanded={open}
+          onClick={() => onToggleRoster(cohort.id)}
+        >
+          {open ? 'Hide participants' : 'Participants'}
+        </Button>
+
+        {/* Consent and roster edits are writes: the backend gates them on
+            Program Admin (consent.authz.guardrail), so a Researcher is not
+            shown a control that could only ever 403. Grant consent is the one
+            ink-filled control on the card; everything else is bordered. */}
+        {canWrite && <ConsentControl cohort={cohort} memberCount={summary.total} onChanged={onChanged} />}
+        {canWrite && <EditCohort cohort={cohort} onSaved={onChanged} />}
+        {canWrite && <DeleteCohort cohort={cohort} onDeleted={onChanged} />}
+      </div>
+
+      {open && <ParticipantRoster cohort={cohort} canWrite={canWrite} onRosterChanged={onChanged} />}
+    </Card>
   );
 }
 
@@ -259,65 +387,35 @@ export default function CohortPanel({ canWrite }) {
   const counts = countsByCohort(participants, cohorts);
 
   return (
-    <section aria-label="cohorts and consent" data-testid="cohort-panel" className="cs-forms">
-      <p role="note">
+    <section
+      aria-label="cohorts and consent"
+      data-testid="cohort-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+    >
+      <Note>
         A cohort is the unit consent is granted on. No campaign can be delivered to anyone whose
-        cohort has not granted consent, and an individual opt-out is always honoured on top of
-        it.
-      </p>
+        cohort has not granted consent, and an individual opt-out is always honoured on top of it.
+      </Note>
 
-      {error && <p role="alert">{error}</p>}
-      {!ready && busy && <p>Loading cohorts…</p>}
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
+      {!ready && busy && <p style={{ color: color.textMuted, margin: 0 }}>Loading cohorts…</p>}
       {ready && canWrite && <CreateCohort onCreated={load} />}
 
       {!ready ? null : cohorts.length === 0 ? (
-        <p>No cohorts yet.</p>
+        <QuietNote style={{ fontSize: 14 }}>No cohorts yet.</QuietNote>
       ) : (
-        <ul>
-          {cohorts.map((cohort) => {
-            const summary = counts.get(cohort.id) || { total: 0, deliverable: 0, optedOut: 0 };
-            return (
-              <li key={cohort.id} data-testid="cohort">
-                <strong>{cohort.name}</strong>{' '}
-                <ConsentBadge cohort={cohort} />{' '}
-                <span data-testid="cohort-counts">
-                  {summary.total} participant{summary.total === 1 ? '' : 's'} ·{' '}
-                  {summary.deliverable} deliverable
-                  {summary.optedOut > 0 && <> · {summary.optedOut} opted out</>}
-                </span>
-                {cohort.description && <p>{cohort.description}</p>}
-
-                <button
-                  type="button"
-                  aria-expanded={openRoster === cohort.id}
-                  onClick={() => toggleRoster(cohort.id)}
-                >
-                  {openRoster === cohort.id ? 'Hide participants' : 'Participants'}
-                </button>
-
-                {/* Consent and roster edits are writes: the backend gates them
-                    on Program Admin (consent.authz.guardrail), so a Researcher
-                    is not shown a control that could only ever 403. */}
-                {canWrite && (
-                  <ConsentControl
-                    cohort={cohort}
-                    memberCount={summary.total}
-                    onChanged={load}
-                  />
-                )}
-                {canWrite && <EditCohort cohort={cohort} onSaved={load} />}
-                {canWrite && <DeleteCohort cohort={cohort} onDeleted={load} />}
-
-                {openRoster === cohort.id && (
-                  <ParticipantRoster
-                    cohort={cohort}
-                    canWrite={canWrite}
-                    onRosterChanged={load}
-                  />
-                )}
-              </li>
-            );
-          })}
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {cohorts.map((cohort) => (
+            <CohortCard
+              key={cohort.id}
+              cohort={cohort}
+              summary={counts.get(cohort.id) || { total: 0, deliverable: 0, optedOut: 0 }}
+              canWrite={canWrite}
+              open={openRoster === cohort.id}
+              onToggleRoster={toggleRoster}
+              onChanged={load}
+            />
+          ))}
         </ul>
       )}
     </section>
