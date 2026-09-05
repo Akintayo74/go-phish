@@ -51,6 +51,47 @@ describe('renderMarkdown', () => {
     expect(links[1]).toHaveAttribute('href', 'mailto:a@b.test');
   });
 
+  it('joins a wrapped bullet into one list item', () => {
+    const el = renderMd(
+      ['- A sender whose display name looks right but the', '  domain is wrong.', '- Second item'].join('\n')
+    );
+    expect(el.querySelectorAll('ul')).toHaveLength(1);
+    const items = el.querySelectorAll('li');
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent('display name looks right but the domain is wrong.');
+    expect(el.querySelector('p')).toBeNull();
+  });
+
+  it('joins a wrapped numbered step into one list item', () => {
+    const el = renderMd(['1. Disconnect the device if you ran', '   anything.', '2. Report it.'].join('\n'));
+    expect(el.querySelectorAll('ol')).toHaveLength(1);
+    const items = el.querySelectorAll('li');
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent('Disconnect the device if you ran anything.');
+  });
+
+  it('keeps a wrapped link intact across the line break', () => {
+    const el = renderMd(['- [Secure Our World](https://www.cisa.gov/secure-our-world)', "  — CISA's four habits."].join('\n'));
+    const link = el.querySelector('li a');
+    expect(link).toHaveAttribute('href', 'https://www.cisa.gov/secure-our-world');
+    expect(el.querySelector('li')).toHaveTextContent("— CISA's four habits.");
+  });
+
+  it('opens external links in a new tab with a safe rel', () => {
+    const el = renderMd('See [CISA](https://www.cisa.gov/secure-our-world).');
+    const link = el.querySelector('a');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('keeps in-site and mailto links in the same tab', () => {
+    const el = renderMd('[home](/#/learn) or [mail](mailto:a@b.test)');
+    for (const link of el.querySelectorAll('a')) {
+      expect(link).not.toHaveAttribute('target');
+      expect(link).not.toHaveAttribute('rel');
+    }
+  });
+
   it('drops an unsafe javascript: link but keeps its label as text', () => {
     const el = renderMd('[click](javascript:alert(1))');
     expect(el.querySelector('a')).toBeNull();

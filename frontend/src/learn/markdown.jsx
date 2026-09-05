@@ -9,6 +9,11 @@ import React from 'react';
 // content cannot inject markup or script into the page. Links are additionally
 // restricted to safe schemes (http/https/mailto and site-relative), so a
 // `javascript:` URL in content can never become a live handler.
+//
+// Lesson content links out to external references (NCSC, CISA, Cisco, the FTC,
+// Google's phishing quiz). Those open in a new tab so a learner never loses
+// their place mid-lesson, and always carry rel="noopener noreferrer" so the
+// opened page gets no handle on ours.
 
 function isSafeHref(href) {
   if (!href) return false;
@@ -16,6 +21,12 @@ function isSafeHref(href) {
   // Site-relative and anchor links are always fine.
   if (/^(\/|#|\.\/|\.\.\/)/.test(trimmed)) return true;
   return /^(https?:|mailto:)/i.test(trimmed);
+}
+
+// An http(s) link leaves the site; everything else (relative, anchor, mailto)
+// stays in place and keeps the default same-tab behaviour.
+function isExternalHref(href) {
+  return /^https?:/i.test(String(href).trim());
 }
 
 // Parse inline spans within a line into React nodes. Order matters: we scan
@@ -46,8 +57,16 @@ function parseInline(text, keyPrefix) {
       const label = m[6];
       const href = m[7];
       if (isSafeHref(href)) {
+        const url = href.trim();
+        const external = isExternalHref(url);
         nodes.push(
-          <a key={key} href={href.trim()}>
+          <a
+            key={key}
+            href={url}
+            {...(external
+              ? { target: '_blank', rel: 'noopener noreferrer' }
+              : null)}
+          >
             {label}
           </a>
         );
@@ -60,6 +79,32 @@ function parseInline(text, keyPrefix) {
   }
 
   return nodes;
+}
+
+// Collect the items of a list starting at `start`. `marker` matches a line that
+// begins a new item; a following indented line (authored content wraps long
+// bullets) is a continuation of the item above rather than a new block.
+// Returns the item texts and the index of the first line after the list.
+function collectListItems(lines, start, marker) {
+  const items = [];
+  let i = start;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (marker.test(line)) {
+      items.push(line.replace(marker, ''));
+      i += 1;
+      continue;
+    }
+    // A wrapped continuation line: indented, non-blank, and there is an item to
+    // append it to. Anything else ends the list.
+    if (items.length > 0 && /^\s+\S/.test(line)) {
+      items[items.length - 1] += ` ${line.trim()}`;
+      i += 1;
+      continue;
+    }
+    break;
+  }
+  return { items, next: i };
 }
 
 // Group raw lines into block elements and render each block.
@@ -109,13 +154,10 @@ export function renderMarkdown(markdown) {
       continue;
     }
 
-    // Unordered list: consecutive `- ` lines.
+    // Unordered list: consecutive `- ` lines (plus wrapped continuations).
     if (/^[-*]\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-*]\s+/, ''));
-        i += 1;
-      }
+      const { items, next } = collectListItems(lines, i, /^[-*]\s+/);
+      i = next;
       const key = nextKey();
       blocks.push(
         <ul key={key}>
@@ -127,13 +169,10 @@ export function renderMarkdown(markdown) {
       continue;
     }
 
-    // Ordered list: consecutive `1. ` lines.
+    // Ordered list: consecutive `1. ` lines (plus wrapped continuations).
     if (/^\d+\.\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s+/, ''));
-        i += 1;
-      }
+      const { items, next } = collectListItems(lines, i, /^\d+\.\s+/);
+      i = next;
       const key = nextKey();
       blocks.push(
         <ol key={key}>

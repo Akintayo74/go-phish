@@ -143,14 +143,16 @@ function LibraryView() {
   }, []);
 
   const groups = state.groups;
-  const lastGroupIndex = groups.length - 1;
+  const lessonCount = groups.reduce((n, g) => n + g.modules.length, 0);
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <h2 style={{ ...type.pageTitle, color: color.ink, margin: 0 }}>Cybersecurity Awareness Training</h2>
         <p style={{ ...type.body, color: color.textMuted, margin: 0 }}>
-          Five short lessons. Free, no account, and nothing about who reads what is recorded.
+          {lessonCount > 0 ? `${lessonCount} short lessons` : 'Short lessons'}, plus links out to
+          free courses and official guidance. No account, and nothing about who reads what is
+          recorded.
         </p>
       </div>
 
@@ -165,19 +167,19 @@ function LibraryView() {
       )}
 
       {state.status === 'ready' &&
-        groups.map((group, gi) => (
+        groups.map((group) => (
           <div key={group.category} data-testid="library-category" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <Eyebrow as="h3">{categoryLabel(group.category)}</Eyebrow>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {group.modules.map((mod, mi) => (
+              {group.modules.map((mod) => (
                 <LessonRow
                   key={mod.slug}
                   slug={mod.slug}
                   title={mod.title}
                   subtitle={mod.summary}
-                  // The one dark row on the screen: the last lesson overall, the
-                  // one for someone who has already clicked and needs help now.
-                  dark={gi === lastGroupIndex && mi === group.modules.length - 1}
+                  // The one dark row on the screen: the lesson for someone who
+                  // has already clicked something and needs help now.
+                  dark={group.category === 'incident-response'}
                 />
               ))}
             </div>
