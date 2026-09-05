@@ -259,7 +259,7 @@ export default function CohortPanel({ canWrite }) {
   const counts = countsByCohort(participants, cohorts);
 
   return (
-    <section aria-label="cohorts and consent" data-testid="cohort-panel">
+    <section aria-label="cohorts and consent" data-testid="cohort-panel" className="cs-forms">
       <p role="note">
         A cohort is the unit consent is granted on. No campaign can be delivered to anyone whose
         cohort has not granted consent, and an individual opt-out is always honoured on top of

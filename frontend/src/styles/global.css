@@ -1,0 +1,460 @@
+/*
+ * CAT-Sim global stylesheet — the "Civic" design system, applied app-wide.
+ *
+ * This file carries only what belongs at the document level: the token custom
+ * properties, base element styling, the one entrance keyframe, the focus ring,
+ * and the mandatory reduced-motion handling. Component look lives in inline
+ * styles driven by ui/theme.js (see the note there about `css: false` in tests);
+ * this sheet is what makes the untouched corners of the app — scrollbars, text
+ * selection, the raw document background — feel part of the same system.
+ *
+ * Elevation rule: there are NO shadows. Depth is the background ramp plus 1px
+ * borders. The only box-shadow anywhere is the focus ring below.
+ */
+
+:root {
+  color-scheme: light;
+
+  --cs-canvas: #f4f4f2;
+  --cs-surface-recessed: #f7f7f5;
+  --cs-surface: #fcfcfb;
+  --cs-surface-raised: #ffffff;
+  --cs-surface-sunken: #f1f2ef;
+  --cs-border: #e3e3df;
+  --cs-border-subtle: #ececea;
+  --cs-border-frame: #dededa;
+  --cs-border-strong: #c9c9c3;
+  --cs-ink: #16171a;
+  --cs-ink-hover: #2c2e33;
+  --cs-text-body: #33373a;
+  --cs-text-secondary: #55595c;
+  --cs-text-muted: #64686b;
+  --cs-accent: #3f4bbd;
+  --cs-accent-hover: #333ea8;
+  --cs-accent-wash: #eef0fb;
+  --cs-success: #1c7049;
+  --cs-warning: #8a5200;
+
+  --cs-font: 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cs-surface);
+  color: var(--cs-text-body);
+  font-family: var(--cs-font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings carry the family and the tighter, unbolded weight the system uses;
+   per-role sizes are set on the components themselves. There is no 700 anywhere
+   in the system — 500 is the heaviest heading weight. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--cs-font);
+  font-weight: 500;
+  color: var(--cs-ink);
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--cs-accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--cs-accent-hover);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Every metric and counter uses tabular figures so digits do not shift as
+   values update. */
+[data-tabular] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The single entrance animation. Elements opt in with class `cs-rise`, and a
+   per-item delay via the --cs-rise-delay custom property drives the stagger
+   (40ms on enrolment, 60ms on disclosure). */
+@keyframes omRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cs-rise {
+  animation: omRise 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: var(--cs-rise-delay, 0ms);
+}
+
+/* The one focus treatment, shared by every interactive control. */
+.cs-focusable:focus-visible {
+  outline: none;
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 3px var(--cs-accent-wash);
+}
+
+/* Press feedback lives on a class so reduced-motion can drop it cleanly. */
+.cs-press:active {
+  transform: scale(0.97);
+}
+.cs-press-lg:active {
+  transform: scale(0.985);
+}
+
+/* Lesson prose (2e). The markdown renderer emits plain h1/h2/p/blockquote/ul/ol;
+   this styles them to the lesson typography without the renderer needing to know
+   about the design system. */
+.cs-prose {
+  color: var(--cs-text-body);
+  font-size: 16px;
+  line-height: 1.65;
+}
+.cs-prose h1 {
+  font-size: 27px;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  margin: 0 0 4px;
+}
+.cs-prose h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin: 8px 0 0;
+}
+.cs-prose p {
+  margin: 0;
+}
+.cs-prose > * + * {
+  margin-top: 14px;
+}
+.cs-prose a {
+  color: var(--cs-accent);
+}
+.cs-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  background: var(--cs-surface-sunken);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.cs-prose blockquote {
+  margin: 14px 0 0;
+  background: var(--cs-accent-wash);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--cs-text-body);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.cs-prose ul,
+.cs-prose ol {
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.6;
+}
+
+/* --- Console sub-panels (analytics, comparison, roster, cohort, send) ------
+   These are the read-heavy areas the design descopes to "derive in-codebase
+   following the tokens". They share one recessed panel treatment plus table and
+   definition-list styling so the whole console reads as one system. */
+
+.cs-panel {
+  background: var(--cs-surface-recessed);
+  border: 1px solid var(--cs-border-subtle);
+  border-radius: 14px;
+  padding: 18px;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cs-panel h4,
+.cs-panel h5 {
+  margin: 0;
+  color: var(--cs-ink);
+  font-weight: 500;
+}
+
+/* Metric definition lists: dl holds a row of dt/dd stacks, laid out with gap. */
+.cs-dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--cs-border-subtle);
+  border: 1px solid var(--cs-border-subtle);
+  border-radius: 11px;
+  overflow: hidden;
+  margin: 0;
+}
+.cs-dl > div {
+  flex: 1 1 120px;
+  background: var(--cs-surface);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cs-dl dt {
+  font-size: 12px;
+  color: var(--cs-text-muted);
+}
+.cs-dl dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--cs-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Data tables (tier breakdown, phase comparison, roster). Hairlines via subtle
+   borders; header row recessed; digits tabular. Wrapped so wide tables scroll
+   inside their own container rather than the page. */
+.cs-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--cs-border-subtle);
+  border-radius: 11px;
+}
+.cs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cs-table caption {
+  caption-side: top;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cs-text-muted);
+}
+.cs-table th,
+.cs-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--cs-border-subtle);
+}
+.cs-table thead th {
+  background: var(--cs-surface-recessed);
+  color: var(--cs-text-muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+.cs-table tbody tr:last-child th,
+.cs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.cs-table tbody th {
+  font-weight: 500;
+  color: var(--cs-ink);
+}
+
+/* Segmented toggle (group-by cohort/department). aria-pressed drives the fill. */
+.cs-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--cs-surface-sunken);
+  border-radius: 11px;
+}
+.cs-seg button {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cs-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+.cs-seg button[aria-pressed='true'] {
+  background: var(--cs-surface-raised);
+  color: var(--cs-ink);
+  border: 1px solid var(--cs-border);
+}
+.cs-seg button:disabled {
+  cursor: default;
+}
+
+/* --- Cohort & roster management (Gap 3 panels) ----------------------------
+   These two panels carry a lot of small forms and controls the handoff leaves
+   to be derived in-codebase. Rather than restyle every control by hand, the
+   panel opts its subtree into the system with `.cs-forms`, and the design lands
+   on the raw elements consistently. */
+
+.cs-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 14px;
+  color: var(--cs-text-body);
+}
+
+.cs-forms h3 { font-size: 19px; letter-spacing: -0.02em; }
+.cs-forms h4 { font-size: 17px; letter-spacing: -0.015em; }
+.cs-forms h5 { font-size: 15px; }
+
+.cs-forms input:not([type='checkbox']):not([type='radio']),
+.cs-forms select,
+.cs-forms textarea {
+  min-height: 44px;
+  padding: 12px 14px;
+  background: var(--cs-surface-raised);
+  border: 1px solid var(--cs-border);
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--cs-text-body);
+  box-sizing: border-box;
+}
+.cs-forms input:focus-visible,
+.cs-forms select:focus-visible,
+.cs-forms textarea:focus-visible {
+  outline: none;
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 3px var(--cs-accent-wash);
+}
+
+/* Labels wrap their control; lay them out with gap. */
+.cs-forms label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cs-text-body);
+}
+/* Checkbox rows read horizontally. */
+.cs-forms label:has(> input[type='checkbox']) {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+/* Every control is bordered-secondary; submit is the one darker action. */
+.cs-forms button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--cs-border);
+  background: var(--cs-surface-raised);
+  color: var(--cs-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.cs-forms button:hover:not(:disabled) {
+  border-color: var(--cs-border-strong);
+}
+.cs-forms button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.cs-forms button:focus-visible {
+  outline: none;
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 3px var(--cs-accent-wash);
+}
+.cs-forms button[type='submit'] {
+  background: var(--cs-ink);
+  border-color: var(--cs-ink);
+  color: #fff;
+}
+.cs-forms button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The cohort list: each cohort is a card. */
+.cs-forms > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cs-forms > ul > li {
+  background: var(--cs-surface-raised);
+  border: 1px solid var(--cs-border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Inline note / alert paragraphs inside the panels. */
+.cs-forms [role='note'] {
+  margin: 0;
+  background: var(--cs-surface-recessed);
+  border: 1px solid var(--cs-border-subtle);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cs-text-secondary);
+  font-weight: 400;
+}
+.cs-forms p[role='alert'] {
+  margin: 0;
+  color: #a13a2a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Nested forms (create/edit/add) sit in a recessed well. */
+.cs-forms form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--cs-surface-recessed);
+  border: 1px solid var(--cs-border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/*
+ * Reduced motion is MANDATORY (handoff): entrances resolve instantly to their
+ * final state, press-scale is dropped, and the consent hold shortens to 400ms
+ * (handled in JS — see ui/theme.js HOLD_MS_REDUCED). It is still a hold, so the
+ * deliberate-action guarantee survives; it simply no longer animates at length.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .cs-rise {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .cs-press:active,
+  .cs-press-lg:active {
+    transform: none;
+  }
+  * {
+    scroll-behavior: auto;
+  }
+}

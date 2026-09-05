@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import CohortPanel, { countsByCohort } from './CohortPanel.jsx';
 import { api } from './api.js';
@@ -139,7 +139,7 @@ describe('creating a cohort', () => {
 });
 
 describe('consent from the cohort list', () => {
-  it('grants consent for a pending cohort and reloads', async () => {
+  it('grants consent for a pending cohort via press-and-hold and reloads', async () => {
     await mountPanel();
     const spy = vi
       .spyOn(api, 'grantCohortConsent')
@@ -147,7 +147,15 @@ describe('consent from the cohort list', () => {
 
     const treasury = screen.getAllByTestId('cohort')[1];
     fireEvent.click(within(treasury).getByRole('button', { name: 'Grant consent' }));
-    click('Yes, grant consent');
+
+    // The grant is a deliberate press-and-hold, not a click (design 2c).
+    vi.useFakeTimers();
+    const hold = within(treasury).getByRole('button', { name: /press and hold to grant consent/i });
+    fireEvent.mouseDown(hold);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1700);
+    });
+    vi.useRealTimers();
 
     await waitFor(() => expect(spy).toHaveBeenCalledWith('co2'));
     await waitFor(() => expect(api.listCohorts).toHaveBeenCalledTimes(2));
