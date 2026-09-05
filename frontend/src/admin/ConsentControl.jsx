@@ -71,7 +71,11 @@ function memberPhrase(count) {
 }
 
 // The confirmation copy leads every branch; laid out with gap, never margins.
+// flexBasis:100% so that when the control sits in the cohort card's wrapping
+// action row, opening a confirmation breaks it onto its own full-width line
+// rather than being squeezed between the other buttons.
 const confirmGroupStyle = {
+  flexBasis: '100%',
   display: 'flex',
   flexDirection: 'column',
   gap: 12,

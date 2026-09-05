@@ -1,5 +1,27 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { color, radius, type } from '../ui/theme.js';
+import { Button, Field, Input, Note, QuietNote } from '../ui/primitives.jsx';
+
+// Shared bits of the roster's look, so the forms and action controls read as
+// part of the console rather than raw HTML. The two data-heavy pieces (the
+// summary definition list and the participant table) keep their .cs-dl / .cs-table
+// treatment — those classes are shared with the analytics panels.
+const errorStyle = { margin: 0, color: color.danger, fontSize: 13, lineHeight: 1.5 };
+const wellStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
+  background: color.surfaceRecessed,
+  border: `1px solid ${color.borderSubtle}`,
+  borderRadius: radius.card,
+  padding: 18,
+};
+const wellHeading = { ...type.sectionH2, color: color.ink, margin: 0 };
+// The per-row actions are secondary and quiet: smaller than a page button so a
+// tableful of them stays calm, and laid out in one inline group per row.
+const compactBtn = { minHeight: 36, padding: '7px 12px', fontSize: 14 };
+const rowActions = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' };
 
 // Participant roster for one cohort (Gap 3).
 //
@@ -113,49 +135,51 @@ function AddParticipant({ cohort, onAdded }) {
   }
 
   return (
-    <form onSubmit={submit} aria-label="add participant">
-      <h5>Add a participant</h5>
-      <label>
-        Contact address
-        <input
+    <form onSubmit={submit} aria-label="add participant" style={wellStyle}>
+      <h5 style={wellHeading}>Add a participant</h5>
+      <Field label="Contact address" htmlFor="add-participant-address">
+        <Input
+          id="add-participant-address"
           aria-label="participant contact address"
           placeholder="name@bank.example"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           required
         />
-      </label>
-      <label>
-        Role
-        <input
-          aria-label="participant role"
-          placeholder="e.g. Teller"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        />
-      </label>
-      <label>
-        Department
-        <input
-          aria-label="participant department"
-          placeholder="e.g. Retail Operations"
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-        />
-      </label>
-      <p role="note">
+      </Field>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <Field label="Role" optional htmlFor="add-participant-role" style={{ flex: '1 1 180px' }}>
+          <Input
+            id="add-participant-role"
+            aria-label="participant role"
+            placeholder="e.g. Teller"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          />
+        </Field>
+        <Field label="Department" optional htmlFor="add-participant-department" style={{ flex: '1 1 180px' }}>
+          <Input
+            id="add-participant-department"
+            aria-label="participant department"
+            placeholder="e.g. Retail Operations"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+          />
+        </Field>
+      </div>
+      <QuietNote>
         The address is used once, to compute a keyed hash. It is not stored, and it is not kept
         in this browser after the participant is added.
-      </p>
-      {error && <p role="alert">{error}</p>}
+      </QuietNote>
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
       {added && (
-        <p role="status" data-testid="added-participant">
+        <p role="status" data-testid="added-participant" style={{ margin: 0, fontSize: 13, color: color.success }}>
           Enrolled as participant {participantRef(added)}.
         </p>
       )}
-      <button type="submit" disabled={busy || identifier.trim() === ''}>
+      <Button type="submit" variant="primary" disabled={busy || identifier.trim() === ''} style={{ alignSelf: 'flex-start' }}>
         {busy ? 'Adding…' : 'Add participant'}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -198,30 +222,44 @@ function FindParticipant({ cohort, onResolved, onChanged }) {
   const inThisCohort = match && match.cohort_id === cohort.id;
 
   return (
-    <form onSubmit={submit} aria-label="find participant">
-      <h5>Find a participant by address</h5>
-      <p role="note">
+    <form onSubmit={submit} aria-label="find participant" style={wellStyle}>
+      <h5 style={wellHeading}>Find a participant by address</h5>
+      <QuietNote>
         Rows are pseudonymous, so a name or address cannot be read off the roster. If someone has
         asked to be removed, resolve their address here and opt them out.
-      </p>
-      <label>
-        Contact address
-        <input
-          aria-label="participant address to find"
-          placeholder="name@bank.example"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          required
-        />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy || identifier.trim() === ''}>
-        {busy ? 'Finding…' : 'Find'}
-      </button>
+      </QuietNote>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <Field label="Contact address" htmlFor="find-participant-address" style={{ flex: '1 1 240px' }}>
+          <Input
+            id="find-participant-address"
+            aria-label="participant address to find"
+            placeholder="name@bank.example"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+          />
+        </Field>
+        <Button type="submit" variant="secondary" disabled={busy || identifier.trim() === ''}>
+          {busy ? 'Finding…' : 'Find'}
+        </Button>
+      </div>
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
 
       {match && (
-        <div role="status" data-testid="lookup-match">
-          <p>
+        <div
+          role="status"
+          data-testid="lookup-match"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            background: color.surfaceRaised,
+            border: `1px solid ${color.border}`,
+            borderRadius: radius.nested,
+            padding: 14,
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: color.textBody }}>
             Participant {participantRef(match)} — {match.role || 'role not recorded'},{' '}
             {match.department || 'department not recorded'}.{' '}
             {inThisCohort ? (
@@ -231,14 +269,16 @@ function FindParticipant({ cohort, onResolved, onChanged }) {
             )}
           </p>
           {inThisCohort && (
-            <OptOutButton
-              participant={match}
-              onChanged={(updated) => {
-                if (updated) setMatch(updated);
-                if (onChanged) onChanged();
-              }}
-              labelSuffix=" (found)"
-            />
+            <div style={{ display: 'flex' }}>
+              <OptOutButton
+                participant={match}
+                onChanged={(updated) => {
+                  if (updated) setMatch(updated);
+                  if (onChanged) onChanged();
+                }}
+                labelSuffix=" (found)"
+              />
+            </div>
           )}
         </div>
       )}
@@ -266,14 +306,16 @@ function OptOutButton({ participant, onChanged, labelSuffix = '' }) {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
       onClick={run}
       disabled={busy}
       aria-label={`${optedOut ? 'opt in' : 'opt out'} participant ${ref}${labelSuffix}`}
+      style={compactBtn}
     >
       {optedOut ? 'Opt back in' : 'Opt out'}
-    </button>
+    </Button>
   );
 }
 
@@ -315,37 +357,47 @@ function EditParticipant({ participant, onSaved }) {
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
+        variant="secondary"
         onClick={() => setOpen(true)}
         aria-label={`edit participant ${ref}`}
+        style={compactBtn}
       >
         Edit
-      </button>
+      </Button>
     );
   }
 
   return (
-    <form onSubmit={submit} aria-label={`edit participant ${ref}`}>
-      <input
+    <form
+      onSubmit={submit}
+      aria-label={`edit participant ${ref}`}
+      style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 220 }}
+    >
+      <Input
         aria-label={`edited role for participant ${ref}`}
         placeholder="Role"
         value={role}
         onChange={(e) => setRole(e.target.value)}
+        style={{ height: 40, minHeight: 40 }}
       />
-      <input
+      <Input
         aria-label={`edited department for participant ${ref}`}
         placeholder="Department"
         value={department}
         onChange={(e) => setDepartment(e.target.value)}
+        style={{ height: 40, minHeight: 40 }}
       />
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy}>
-        {busy ? 'Saving…' : 'Save'}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} disabled={busy}>
-        Cancel
-      </button>
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
+      <div style={rowActions}>
+        <Button type="submit" variant="primary" disabled={busy} style={compactBtn}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={busy} style={compactBtn}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
@@ -373,28 +425,45 @@ function RemoveParticipant({ participant, onChanged }) {
 
   if (!confirming) {
     return (
-      <button
+      <Button
         type="button"
+        variant="secondary"
         onClick={() => setConfirming(true)}
         aria-label={`remove participant ${ref}`}
+        style={{ ...compactBtn, color: color.danger }}
       >
         Remove
-      </button>
+      </Button>
     );
   }
 
   return (
-    <span role="group" aria-label={`confirm removal of participant ${ref}`}>
-      <span>
+    <span
+      role="group"
+      aria-label={`confirm removal of participant ${ref}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        minWidth: 240,
+        background: color.dangerWash,
+        border: `1px solid ${color.borderSubtle}`,
+        borderRadius: radius.nested,
+        padding: 12,
+      }}
+    >
+      <span style={{ fontSize: 13, lineHeight: 1.5, color: color.textBody }}>
         Deleting participant {ref} erases the record that they were ever enrolled. To stop
         contacting them while keeping that record, opt them out instead.
       </span>
-      <button type="button" onClick={remove} disabled={busy}>
-        {busy ? 'Removing…' : 'Yes, delete'}
-      </button>
-      <button type="button" onClick={() => setConfirming(false)} disabled={busy}>
-        Cancel
-      </button>
+      <div style={rowActions}>
+        <Button type="button" variant="danger" onClick={remove} disabled={busy} style={compactBtn}>
+          {busy ? 'Removing…' : 'Yes, delete'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setConfirming(false)} disabled={busy} style={compactBtn}>
+          Cancel
+        </Button>
+      </div>
     </span>
   );
 }
@@ -437,9 +506,20 @@ export default function ParticipantRoster({ cohort, canWrite, onRosterChanged })
   const summary = rosterSummary(participants, cohort);
 
   return (
-    <section aria-label={`participants in ${cohort.name}`} data-testid="participant-roster" className="cs-forms">
-      {!ready && busy && <p>Loading roster…</p>}
-      {error && <p role="alert">{error}</p>}
+    <section
+      aria-label={`participants in ${cohort.name}`}
+      data-testid="participant-roster"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        marginTop: 4,
+        paddingTop: 16,
+        borderTop: `1px solid ${color.borderSubtle}`,
+      }}
+    >
+      {!ready && busy && <p style={{ margin: 0, color: color.textMuted }}>Loading roster…</p>}
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
 
       {ready && (
         <>
@@ -459,7 +539,7 @@ export default function ParticipantRoster({ cohort, canWrite, onRosterChanged })
           </dl>
 
           {participants.length === 0 ? (
-            <p>No participants in this cohort yet.</p>
+            <QuietNote style={{ fontSize: 14 }}>No participants in this cohort yet.</QuietNote>
           ) : (
             <div className="cs-table-wrap">
             <table className="cs-table">
@@ -495,9 +575,11 @@ export default function ParticipantRoster({ cohort, canWrite, onRosterChanged })
                       <td>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td>
                       {canWrite && (
                         <td>
-                          <OptOutButton participant={p} onChanged={refresh} />
-                          <EditParticipant participant={p} onSaved={refresh} />
-                          <RemoveParticipant participant={p} onChanged={refresh} />
+                          <div style={{ ...rowActions, alignItems: 'flex-start' }}>
+                            <OptOutButton participant={p} onChanged={refresh} />
+                            <EditParticipant participant={p} onSaved={refresh} />
+                            <RemoveParticipant participant={p} onChanged={refresh} />
+                          </div>
                         </td>
                       )}
                     </tr>
