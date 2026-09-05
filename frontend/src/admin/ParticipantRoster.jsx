@@ -437,13 +437,13 @@ export default function ParticipantRoster({ cohort, canWrite, onRosterChanged })
   const summary = rosterSummary(participants, cohort);
 
   return (
-    <section aria-label={`participants in ${cohort.name}`} data-testid="participant-roster">
+    <section aria-label={`participants in ${cohort.name}`} data-testid="participant-roster" className="cs-forms">
       {!ready && busy && <p>Loading roster…</p>}
       {error && <p role="alert">{error}</p>}
 
       {ready && (
         <>
-          <dl data-testid="roster-summary">
+          <dl data-testid="roster-summary" className="cs-dl">
             <div>
               <dt>Participants</dt>
               <dd data-testid="summary-total">{summary.total}</dd>
@@ -461,7 +461,8 @@ export default function ParticipantRoster({ cohort, canWrite, onRosterChanged })
           {participants.length === 0 ? (
             <p>No participants in this cohort yet.</p>
           ) : (
-            <table>
+            <div className="cs-table-wrap">
+            <table className="cs-table">
               <caption>
                 Participants are pseudonymous — only a keyed hash of each contact is stored, so
                 rows are identified by a reference, not a name. Whether someone clicked or
@@ -504,6 +505,7 @@ export default function ParticipantRoster({ cohort, canWrite, onRosterChanged })
                 })}
               </tbody>
             </table>
+            </div>
           )}
 
           {canWrite && (

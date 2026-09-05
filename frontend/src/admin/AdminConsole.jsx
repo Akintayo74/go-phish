@@ -4,13 +4,21 @@ import CampaignAnalytics from './CampaignAnalytics.jsx';
 import CohortPanel from './CohortPanel.jsx';
 import PhaseComparison from './PhaseComparison.jsx';
 import SendPanel from './SendPanel.jsx';
+import { color, radius, type } from '../ui/theme.js';
+import { Wordmark, Card, Button, Pill, StatusDot, Field, Input, QuietNote } from '../ui/primitives.jsx';
 
-// Minimal admin console shell (Phase 3). Login → two management areas:
-// campaigns (create, lifecycle, delivery, analytics) and cohorts & consent
-// (the consent gate and the participant roster, Gap 3). Write controls are
-// shown only to Program Admins — Researchers get a read-only view, mirroring
-// the backend role gating. The gating here is presentation: the authorization
-// itself lives on the routes (see consent.authz.guardrail).
+// Admin console (Phase 3), rebuilt on the "Civic" design system's console shell
+// (screen 2a): a persistent 224px sidebar plus a content column, no shadows,
+// depth from the background ramp and 1px borders. Login → two management areas:
+// campaigns (create, lifecycle, delivery, analytics) and cohorts & consent (the
+// consent gate and the participant roster, Gap 3). Write controls are shown only
+// to Program Admins — Researchers get a read-only view, mirroring the backend
+// role gating. The gating here is presentation: the authorization itself lives
+// on the routes (see consent.authz.guardrail).
+//
+// Below 920px the console is explicitly descoped by the handoff; the shell keeps
+// working (the sidebar wraps above the content) rather than inventing a narrow
+// layout the design does not specify.
 
 const PROGRAM_ADMIN = 'program_admin';
 
@@ -23,7 +31,9 @@ const VIEWS = [
 ];
 
 // Which lifecycle actions are offered from each status (mirrors the backend
-// state machine so the UI never offers an illegal transition).
+// state machine so the UI never offers an illegal transition). The first action
+// of each list is the campaign's natural next step and gets the one ink fill;
+// the rest are bordered-secondary, honouring the direction rule per card.
 const NEXT_ACTIONS = {
   draft: [['activate', 'Activate']],
   active: [
@@ -36,6 +46,15 @@ const NEXT_ACTIONS = {
   ],
   completed: [['archive', 'Archive']],
   archived: [],
+};
+
+// Status → dot tone + human label, used on the campaign card status line.
+const STATUS_TONE = {
+  draft: 'muted',
+  active: 'success',
+  paused: 'warning',
+  completed: 'accent',
+  archived: 'muted',
 };
 
 function LoginForm({ onLoggedIn }) {
@@ -60,31 +79,37 @@ function LoginForm({ onLoggedIn }) {
   }
 
   return (
-    <form onSubmit={submit} aria-label="admin login">
-      <h2>Admin sign in</h2>
-      <label>
-        Email
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </label>
-      <label>
-        Password
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy}>
-        {busy ? 'Signing in…' : 'Sign in'}
-      </button>
-    </form>
+    <div style={{ background: color.surfaceRecessed, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <Card
+        as="form"
+        onSubmit={submit}
+        aria-label="admin login"
+        raised
+        radius={radius.outer}
+        padding="30px 28px"
+        style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}
+      >
+        <Wordmark />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <h2 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>Admin sign in</h2>
+          <p style={{ fontSize: 14, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
+            For programme administrators and researchers.
+          </p>
+        </div>
+        <Field label="Email" htmlFor="admin-email">
+          <Input id="admin-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </Field>
+        <Field label="Password" htmlFor="admin-password">
+          <Input id="admin-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </Field>
+        {error && (
+          <p role="alert" style={{ color: color.danger, fontSize: 13, margin: 0 }}>{error}</p>
+        )}
+        <Button type="submit" variant="primary" full disabled={busy}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </Card>
+    </div>
   );
 }
 
@@ -110,24 +135,30 @@ function CreateCampaign({ onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} aria-label="create campaign">
-      <h3>New campaign</h3>
-      <input
+    <Card
+      as="form"
+      onSubmit={submit}
+      aria-label="create campaign"
+      raised
+      style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+    >
+      <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>New campaign</h3>
+      <Input
         aria-label="campaign name"
         placeholder="Campaign name"
         value={name}
         onChange={(e) => setName(e.target.value)}
         required
       />
-      <input
+      <Input
         aria-label="phase label"
         placeholder="Phase label (optional)"
         value={phaseLabel}
         onChange={(e) => setPhaseLabel(e.target.value)}
       />
-      {error && <p role="alert">{error}</p>}
-      <button type="submit">Create</button>
-    </form>
+      {error && <p role="alert" style={{ color: color.danger, fontSize: 13, margin: 0 }}>{error}</p>}
+      <Button type="submit" variant="primary" style={{ alignSelf: 'flex-start' }}>Create</Button>
+    </Card>
   );
 }
 
@@ -163,39 +194,41 @@ function CloneCampaign({ campaign, onCloned }) {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
         Clone as new phase
-      </button>
+      </Button>
     );
   }
 
   return (
-    <form onSubmit={submit} aria-label="clone campaign">
-      <input
+    <form onSubmit={submit} aria-label="clone campaign" style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+      <Input
         aria-label="clone name"
         placeholder="New campaign name"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <input
+      <Input
         aria-label="clone phase label"
         placeholder="Phase label (e.g. Phase II)"
         value={phaseLabel}
         onChange={(e) => setPhaseLabel(e.target.value)}
       />
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy}>
-        {busy ? 'Cloning…' : 'Create clone'}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} disabled={busy}>
-        Cancel
-      </button>
+      {error && <p role="alert" style={{ color: color.danger, fontSize: 13, margin: 0 }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button type="submit" variant="primary" disabled={busy}>
+          {busy ? 'Cloning…' : 'Create clone'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
 
-function CampaignList({
-  campaigns,
+function CampaignCard({
+  campaign: c,
   canWrite,
   onTransition,
   onCloned,
@@ -205,42 +238,159 @@ function CampaignList({
   comparisonFor,
   onToggleComparison,
 }) {
-  if (campaigns.length === 0) return <p>No campaigns yet.</p>;
+  const lifecycle = NEXT_ACTIONS[c.status] || [];
   return (
-    <ul>
+    <Card as="li" raised data-testid="campaign" style={{ display: 'flex', flexDirection: 'column', gap: 14, listStyle: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <strong style={{ ...type.rowTitle, color: color.ink }}>{c.name}</strong>
+          {c.phase_label && (
+            <Pill tone="neutral">
+              <em data-testid="phase-label" style={{ fontStyle: 'normal' }}>{c.phase_label}</em>
+            </Pill>
+          )}
+          {c.cloned_from_campaign_id && <Pill tone="accent">Cloned</Pill>}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <StatusDot tone={STATUS_TONE[c.status] || 'muted'} ring={c.status === 'draft'} />
+        <span data-testid="status" style={{ fontSize: 13, fontWeight: 500, color: color.textSecondary, textTransform: 'capitalize' }}>
+          {c.status}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {canWrite &&
+          lifecycle.map(([action, label], i) => (
+            <Button
+              key={action}
+              type="button"
+              variant={i === 0 && (action === 'activate') ? 'primary' : 'secondary'}
+              onClick={() => onTransition(c.id, action)}
+            >
+              {label}
+            </Button>
+          ))}
+        {/* Analytics and phase comparison are aggregate-only and open to any
+            operator (researchers included), so their toggles are shown
+            regardless of write access. Cloning is a write, so it is gated. */}
+        <Button type="button" variant="secondary" aria-expanded={analyticsFor === c.id} onClick={() => onToggleAnalytics(c.id)}>
+          {analyticsFor === c.id ? 'Hide analytics' : 'Analytics'}
+        </Button>
+        <Button type="button" variant="secondary" aria-expanded={comparisonFor === c.id} onClick={() => onToggleComparison(c.id)}>
+          {comparisonFor === c.id ? 'Hide phases' : 'Compare phases'}
+        </Button>
+        {canWrite && <CloneCampaign campaign={c} onCloned={onCloned} />}
+        {canWrite && <SendPanel campaign={c} onSent={onSent} />}
+      </div>
+
+      {analyticsFor === c.id && <CampaignAnalytics campaignId={c.id} />}
+      {comparisonFor === c.id && <PhaseComparison campaignId={c.id} />}
+    </Card>
+  );
+}
+
+function CampaignList(props) {
+  const { campaigns } = props;
+  if (campaigns.length === 0) {
+    return (
+      <QuietNote style={{ fontSize: 14 }}>No campaigns yet. Create one to get started.</QuietNote>
+    );
+  }
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
       {campaigns.map((c) => (
-        <li key={c.id} data-testid="campaign">
-          <strong>{c.name}</strong>{' '}
-          {c.phase_label && <em data-testid="phase-label">{c.phase_label}</em>}{' '}
-          <span data-testid="status">[{c.status}]</span>
-          {canWrite &&
-            (NEXT_ACTIONS[c.status] || []).map(([action, label]) => (
-              <button key={action} onClick={() => onTransition(c.id, action)}>
-                {label}
-              </button>
-            ))}
-          {/* Analytics and phase comparison are aggregate-only and open to any
-              operator (researchers included), so their toggles are shown
-              regardless of write access. Cloning is a write, so it is gated. */}
-          <button
-            aria-expanded={analyticsFor === c.id}
-            onClick={() => onToggleAnalytics(c.id)}
-          >
-            {analyticsFor === c.id ? 'Hide analytics' : 'Analytics'}
-          </button>
-          <button
-            aria-expanded={comparisonFor === c.id}
-            onClick={() => onToggleComparison(c.id)}
-          >
-            {comparisonFor === c.id ? 'Hide phases' : 'Compare phases'}
-          </button>
-          {canWrite && <CloneCampaign campaign={c} onCloned={onCloned} />}
-          {canWrite && <SendPanel campaign={c} onSent={onSent} />}
-          {analyticsFor === c.id && <CampaignAnalytics campaignId={c.id} />}
-          {comparisonFor === c.id && <PhaseComparison campaignId={c.id} />}
-        </li>
+        <CampaignCard key={c.id} campaign={c} {...props} />
       ))}
     </ul>
+  );
+}
+
+// The persistent 224px sidebar (2a): wordmark, nav with one active item, and an
+// account block pinned to the bottom.
+function Sidebar({ admin, view, setView, onSignOut, counts }) {
+  return (
+    <aside
+      style={{
+        width: 224,
+        flex: 'none',
+        background: color.surfaceRecessed,
+        borderRight: `1px solid ${color.borderSubtle}`,
+        padding: '20px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+        minHeight: '100vh',
+      }}
+    >
+      <div style={{ padding: '0 8px' }}>
+        <Wordmark />
+      </div>
+
+      <nav role="group" aria-label="console section" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {VIEWS.map(([value, label]) => {
+          const active = view === value;
+          const badge = counts[value];
+          return (
+            <button
+              key={value}
+              type="button"
+              className="cs-focusable cs-press-lg"
+              aria-pressed={active}
+              onClick={() => setView(value)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                padding: '9px 12px',
+                borderRadius: radius.nav,
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontSize: 14,
+                fontWeight: active ? 500 : 400,
+                background: active ? color.ink : 'transparent',
+                color: active ? color.white : color.textSecondary,
+                transition: 'background-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.23,1,0.32,1)',
+              }}
+            >
+              <span>{label}</span>
+              {badge != null && (
+                <span aria-hidden="true" data-tabular style={{ fontSize: 12, color: active ? color.textOnDarkMuted : color.textMuted }}>{badge}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div
+        style={{
+          marginTop: 'auto',
+          background: color.surfaceRaised,
+          border: `1px solid ${color.borderSubtle}`,
+          borderRadius: radius.input,
+          padding: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 500, color: color.ink, wordBreak: 'break-all' }}>{admin.email}</span>
+        <Pill tone="accent" style={{ alignSelf: 'flex-start' }}>
+          {admin.role === PROGRAM_ADMIN ? 'Program admin' : 'Researcher'}
+        </Pill>
+        <button
+          type="button"
+          className="cs-focusable"
+          onClick={onSignOut}
+          style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: color.textMuted }}
+        >
+          Sign out
+        </button>
+      </div>
+    </aside>
   );
 }
 
@@ -321,55 +471,63 @@ export default function AdminConsole() {
     }
   }
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) {
+    return (
+      <div style={{ background: color.surface, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: color.textMuted }}>
+        <p>Loading…</p>
+      </div>
+    );
+  }
   if (!admin) return <LoginForm onLoggedIn={handleLoggedIn} />;
 
   const canWrite = admin.role === PROGRAM_ADMIN;
+  const counts = { campaigns: campaigns.length || null };
 
   return (
-    <section aria-label="admin console">
-      <header>
-        <p>
-          Signed in as <strong>{admin.email}</strong> ({admin.role}){' '}
-          <button onClick={signOut}>Sign out</button>
-        </p>
-        <nav role="group" aria-label="console section">
-          {VIEWS.map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={view === value}
-              onClick={() => setView(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
-      </header>
-      {error && <p role="alert">{error}</p>}
+    <section
+      aria-label="admin console"
+      style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', background: color.surface, minHeight: '100vh', border: `1px solid ${color.borderFrame}` }}
+    >
+      <Sidebar admin={admin} view={view} setView={setView} onSignOut={signOut} counts={counts} />
 
-      {view === 'cohorts' ? (
-        <>
-          <h2>Cohorts &amp; consent</h2>
-          <CohortPanel canWrite={canWrite} />
-        </>
-      ) : (
-        <>
-          <h2>Campaigns</h2>
-          {canWrite && <CreateCampaign onCreated={refresh} />}
-          <CampaignList
-            campaigns={campaigns}
-            canWrite={canWrite}
-            onTransition={handleTransition}
-            onCloned={refresh}
-            onSent={refresh}
-            analyticsFor={analyticsFor}
-            onToggleAnalytics={toggleAnalytics}
-            comparisonFor={comparisonFor}
-            onToggleComparison={toggleComparison}
-          />
-        </>
-      )}
+      <div style={{ flex: 1, minWidth: 0, padding: '28px 30px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        {error && <p role="alert" style={{ color: color.danger, fontSize: 14, margin: 0 }}>{error}</p>}
+
+        {view === 'cohorts' ? (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <h2 style={{ ...type.consoleH2, color: color.ink, margin: 0 }}>Cohorts &amp; consent</h2>
+              <p style={{ fontSize: 14, color: color.textMuted, margin: 0 }}>
+                Consent is granted per cohort and gates every delivery.
+              </p>
+            </div>
+            <CohortPanel canWrite={canWrite} />
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <h2 style={{ ...type.consoleH2, color: color.ink, margin: 0 }}>Campaigns</h2>
+                <p style={{ fontSize: 14, color: color.textMuted, margin: 0 }}>
+                  Two phases in this study. Delivery is gated on cohort consent.
+                </p>
+              </div>
+            </div>
+            {canWrite && <CreateCampaign onCreated={refresh} />}
+            <CampaignList
+              campaigns={campaigns}
+              canWrite={canWrite}
+              onTransition={handleTransition}
+              onCloned={refresh}
+              onSent={refresh}
+              analyticsFor={analyticsFor}
+              onToggleAnalytics={toggleAnalytics}
+              comparisonFor={comparisonFor}
+              onToggleComparison={toggleComparison}
+            />
+          </>
+        )}
+      </div>
     </section>
   );
 }

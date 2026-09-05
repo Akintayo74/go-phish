@@ -1,8 +1,21 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ConsentControl, { ConsentBadge, consentLabel } from './ConsentControl.jsx';
 import { api } from './api.js';
+
+// The grant is a press-and-hold, not a click (design 2c): the commit fires only
+// after the full hold elapses. This helper opens the confirm group, presses the
+// hold control, and advances fake timers past the 1.6s hold so the grant
+// commits — the resistance is deliberate and these tests exercise it.
+async function holdToGrant() {
+  fireEvent.click(screen.getByRole('button', { name: 'Grant consent' }));
+  const hold = screen.getByRole('button', { name: /press and hold to grant consent/i });
+  fireEvent.mouseDown(hold);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1700);
+  });
+}
 
 const PENDING = { id: 'co1', name: 'Retail Ops', consent_status: 'pending' };
 const GRANTED = {
@@ -79,6 +92,25 @@ describe('granting consent', () => {
     expect(screen.getByRole('group', { name: 'confirm consent grant' })).toBeInTheDocument();
   });
 
+  it('does not grant on a mere press — the hold must complete', async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(api, 'grantCohortConsent').mockResolvedValue({ data: GRANTED });
+    render(<ConsentControl cohort={PENDING} memberCount={12} />);
+    click('Grant consent');
+    const hold = screen.getByRole('button', { name: /press and hold to grant consent/i });
+    fireEvent.mouseDown(hold);
+    // Release well before the 1.6s hold elapses — nothing is recorded.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    fireEvent.mouseUp(hold);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(spy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it('names how many people the grant makes targetable', () => {
     render(<ConsentControl cohort={PENDING} memberCount={12} />);
     click('Grant consent');
@@ -97,16 +129,17 @@ describe('granting consent', () => {
     expect(confirm).toHaveTextContent('1 participant');
   });
 
-  it('grants once confirmed and reports back', async () => {
+  it('grants once the hold completes and reports back', async () => {
+    vi.useFakeTimers();
     const spy = vi.spyOn(api, 'grantCohortConsent').mockResolvedValue({ data: GRANTED });
     const onChanged = vi.fn();
     render(<ConsentControl cohort={PENDING} memberCount={3} onChanged={onChanged} />);
 
-    click('Grant consent');
-    click('Yes, grant consent');
+    await holdToGrant();
 
-    await waitFor(() => expect(spy).toHaveBeenCalledWith('co1'));
+    expect(spy).toHaveBeenCalledWith('co1');
     expect(onChanged).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it('cancelling leaves consent untouched', () => {
@@ -165,18 +198,17 @@ describe('withdrawing consent', () => {
 
 describe('failures', () => {
   it('surfaces the backend role refusal rather than appearing to succeed', async () => {
+    vi.useFakeTimers();
     const err = Object.assign(new Error('forbidden'), { status: 403, code: 'forbidden' });
     vi.spyOn(api, 'grantCohortConsent').mockRejectedValue(err);
     const onChanged = vi.fn();
     render(<ConsentControl cohort={PENDING} onChanged={onChanged} />);
 
-    click('Grant consent');
-    click('Yes, grant consent');
+    await holdToGrant();
 
-    await waitFor(() =>
-      expect(screen.getByText(/only a program admin can change consent/i)).toBeInTheDocument()
-    );
+    expect(screen.getByText(/only a program admin can change consent/i)).toBeInTheDocument();
     // Nothing moved, so the parent is not told to refresh.
     expect(onChanged).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

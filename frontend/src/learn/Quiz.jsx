@@ -1,26 +1,80 @@
 import React, { useEffect, useState } from 'react';
 import { learnApi } from './api.js';
+import { color, radius, type, tabular } from '../ui/theme.js';
+import { Button } from '../ui/primitives.jsx';
 
-// Phase 7 — knowledge-check quiz for a lesson module. Rendered beneath the
-// module body on #/learn/<slug>. Fully public, like the rest of the CAT site.
+// Phase 7 — knowledge-check quiz for a lesson module (screen 2e). Rendered
+// beneath the module body on #/learn/<slug>. Fully public, like the rest of the
+// CAT site.
 //
 // The answer key never reaches this component: the API returns prompts + choices
 // only, and grading is done server-side. On submit we POST the chosen choice
 // indices and render the aggregate result (score + pass/fail) the server sends
 // back — this component never decides correctness itself.
+//
+// Options are REAL radio inputs (visually hidden), not styled divs, so keyboard
+// and screen-reader behaviour is correct; the visible treatment is on the
+// wrapping label.
 
 function ResultBanner({ result, onRetry }) {
   return (
-    <div data-testid="quiz-result">
-      <p>
-        <strong>{result.passed ? 'Passed' : 'Keep practicing'}</strong> — you scored{' '}
-        <span data-testid="quiz-score">{result.score}%</span> ({result.correct} of {result.total}{' '}
+    <div data-testid="quiz-result" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <p style={{ ...type.body, color: color.textBody, margin: 0 }}>
+        <strong style={{ fontWeight: 500 }}>{result.passed ? 'Passed' : 'Keep practicing'}</strong> — you scored{' '}
+        <span data-testid="quiz-score" data-tabular style={tabular}>{result.score}%</span> ({result.correct} of {result.total}{' '}
         correct). {result.passed ? '' : `You need ${result.pass_threshold}% to pass.`}
       </p>
-      <button type="button" onClick={onRetry}>
+      <Button type="button" variant={result.passed ? 'secondary' : 'primary'} onClick={onRetry}>
         {result.passed ? 'Take it again' : 'Try again'}
-      </button>
+      </Button>
     </div>
+  );
+}
+
+// A single option rendered as a real (visually hidden) radio inside its label.
+function Option({ name, checked, onChange, children }) {
+  return (
+    <label
+      className="cs-press-lg"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        minHeight: 44,
+        padding: '12px 14px',
+        borderRadius: radius.option,
+        fontSize: 15,
+        lineHeight: 1.4,
+        cursor: 'pointer',
+        background: checked ? color.accentWash : color.surface,
+        border: checked ? `1.5px solid ${color.accent}` : `1px solid ${color.border}`,
+        fontWeight: checked ? 500 : 400,
+        color: color.textBody,
+        transition: 'background-color 160ms ease, border-color 160ms ease',
+      }}
+    >
+      {/* visually hidden but real, focusable, and keyboard-operable */}
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        onChange={onChange}
+        style={{ position: 'absolute', opacity: 0, width: 1, height: 1, margin: 0 }}
+      />
+      <span
+        aria-hidden="true"
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 999,
+          flex: 'none',
+          boxSizing: 'border-box',
+          border: checked ? `5px solid ${color.accent}` : `1.5px solid ${color.borderStrong}`,
+          background: 'transparent',
+        }}
+      />
+      <span>{children}</span>
+    </label>
   );
 }
 
@@ -74,7 +128,7 @@ export default function Quiz({ slug, submitAnswers, onResult }) {
   if (error) {
     return (
       <section data-testid="quiz-error">
-        <p>The knowledge check is currently unavailable.</p>
+        <p style={{ color: color.textSecondary }}>The knowledge check is currently unavailable.</p>
       </section>
     );
   }
@@ -115,35 +169,43 @@ export default function Quiz({ slug, submitAnswers, onResult }) {
   };
 
   return (
-    <section data-testid="quiz" aria-labelledby="quiz-heading">
-      <h3 id="quiz-heading">{quiz.title || 'Knowledge check'}</h3>
+    <section
+      data-testid="quiz"
+      aria-labelledby="quiz-heading"
+      style={{
+        background: color.surfaceRaised,
+        border: `1px solid ${color.border}`,
+        borderRadius: radius.card,
+        padding: '18px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+      }}
+    >
+      <h3 id="quiz-heading" style={{ ...type.sectionH2, color: color.ink, margin: 0 }}>
+        {quiz.title || 'Knowledge check'}
+      </h3>
 
       {result ? (
         <ResultBanner result={result} onRetry={retry} />
       ) : (
-        <form onSubmit={submit}>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {quiz.questions.map((q, qi) => (
-            <fieldset key={qi} data-testid="quiz-question" style={{ marginBottom: '1rem' }}>
-              <legend>{q.prompt}</legend>
+            <fieldset key={qi} data-testid="quiz-question" style={{ border: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <legend style={{ ...type.body, color: color.textBody, padding: 0, marginBottom: 2 }}>{q.prompt}</legend>
               {q.choices.map((choice, ci) => (
-                <label key={ci} style={{ display: 'block' }}>
-                  <input
-                    type="radio"
-                    name={`q${qi}`}
-                    checked={answers[qi] === ci}
-                    onChange={() => choose(qi, ci)}
-                  />{' '}
+                <Option key={ci} name={`q${qi}`} checked={answers[qi] === ci} onChange={() => choose(qi, ci)}>
                   {choice}
-                </label>
+                </Option>
               ))}
             </fieldset>
           ))}
 
-          <button type="submit" disabled={submitting || !allAnswered}>
+          <Button type="submit" variant="primary" full disabled={submitting || !allAnswered}>
             {submitting ? 'Scoring…' : 'Check my answers'}
-          </button>
+          </Button>
           {!allAnswered && (
-            <p data-testid="quiz-hint">
+            <p data-testid="quiz-hint" style={{ fontSize: 13, color: color.textMuted, margin: 0 }}>
               Answer all {total} question{total === 1 ? '' : 's'} to check your score.
             </p>
           )}

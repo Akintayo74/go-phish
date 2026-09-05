@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { color } from '../ui/theme.js';
 
 // Phase comparison panel (Phase 10) — the core research payoff. For one
 // campaign it loads the whole re-test family (the original phase plus every
@@ -117,16 +118,17 @@ export default function PhaseComparison({ campaignId }) {
   const deltaById = new Map((comparison.deltas || []).map((d) => [d.campaign_id, d]));
 
   return (
-    <section aria-label="phase comparison" data-testid="phase-comparison">
+    <section aria-label="phase comparison" data-testid="phase-comparison" className="cs-panel">
       {blocks.length < 2 && (
-        <p data-testid="single-phase-note" role="note">
+        <p data-testid="single-phase-note" role="note" style={{ margin: 0, color: color.textSecondary, fontSize: 13, lineHeight: 1.5 }}>
           This campaign has no other phases yet. Clone it as a new phase to run a re-test, then
           return here to compare susceptibility across phases.
         </p>
       )}
 
       {blocks.length > 0 && (
-        <table>
+        <div className="cs-table-wrap">
+        <table className="cs-table">
           <thead>
             <tr>
               <th>Phase</th>
@@ -149,6 +151,7 @@ export default function PhaseComparison({ campaignId }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

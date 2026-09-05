@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { color } from '../ui/theme.js';
 
 // Campaign analytics panel (Phase 9). Renders the AGGREGATE-ONLY report for one
 // campaign: overall click/submission/open rates, the four-tier susceptibility
@@ -47,7 +48,7 @@ function InteractionTable({ interactions }) {
   }
   return (
     <>
-      <dl data-testid="overall-rates">
+      <dl data-testid="overall-rates" className="cs-dl">
         <div>
           <dt>Open rate</dt>
           <dd>{pct(interactions.totals.open_rate)}</dd>
@@ -67,7 +68,8 @@ function InteractionTable({ interactions }) {
       </dl>
 
       {interactions.groups.length > 0 ? (
-        <table data-testid="tier-breakdown">
+        <div className="cs-table-wrap">
+        <table data-testid="tier-breakdown" className="cs-table">
           <thead>
             <tr>
               <th>Group</th>
@@ -93,8 +95,9 @@ function InteractionTable({ interactions }) {
             ))}
           </tbody>
         </table>
+        </div>
       ) : (
-        <p>No group large enough to report individually.</p>
+        <p style={{ color: color.textMuted, margin: 0 }}>No group large enough to report individually.</p>
       )}
       <SuppressionNote suppressed={interactions.suppressed} />
     </>
@@ -140,8 +143,8 @@ export default function CampaignAnalytics({ campaignId }) {
   }, [load]);
 
   return (
-    <section aria-label="campaign analytics" data-testid="campaign-analytics">
-      <div role="group" aria-label="group by">
+    <section aria-label="campaign analytics" data-testid="campaign-analytics" className="cs-panel">
+      <div className="cs-seg" role="group" aria-label="group by">
         {GROUP_BYS.map(([value, label]) => (
           <button
             key={value}
@@ -155,8 +158,8 @@ export default function CampaignAnalytics({ campaignId }) {
         ))}
       </div>
 
-      {loading && <p>Loading analytics…</p>}
-      {error && <p role="alert">{error}</p>}
+      {loading && <p style={{ color: color.textMuted, margin: 0 }}>Loading analytics…</p>}
+      {error && <p role="alert" style={{ color: color.danger, margin: 0 }}>{error}</p>}
 
       {!loading && !error && report && (
         <>

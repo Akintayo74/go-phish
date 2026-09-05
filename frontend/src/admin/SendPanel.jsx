@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { api } from './api.js';
+import { color, radius, type } from '../ui/theme.js';
+import { Button, Textarea, QuietNote } from '../ui/primitives.jsx';
 
 // Campaign delivery panel. Program Admin only.
 //
@@ -46,8 +48,8 @@ function SendReceipt({ receipt, kind }) {
   const delivered = kind === 'notify' ? receipt.notified : receipt.sent;
 
   return (
-    <div data-testid="send-receipt" role="status">
-      <dl>
+    <div data-testid="send-receipt" role="status" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <dl className="cs-dl">
         <div>
           <dt>Addresses submitted</dt>
           <dd data-testid="receipt-total">{receipt.total}</dd>
@@ -67,7 +69,7 @@ function SendReceipt({ receipt, kind }) {
       </dl>
 
       {skippedTotal > 0 && (
-        <ul data-testid="receipt-skipped-detail">
+        <ul data-testid="receipt-skipped-detail" style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6, color: color.textSecondary }}>
           {skipped.unknown > 0 && <li>{skipped.unknown} not on the participant roster</li>}
           {skipped.not_deliverable > 0 && (
             <li>{skipped.not_deliverable} withheld by the consent gate</li>
@@ -83,7 +85,7 @@ function SendReceipt({ receipt, kind }) {
       )}
 
       {reasons.length > 0 && (
-        <p data-testid="receipt-reasons">
+        <p data-testid="receipt-reasons" style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: color.textSecondary }}>
           Consent gate:{' '}
           {reasons.map(([key, count], i) => (
             <span key={key}>
@@ -135,25 +137,25 @@ export default function SendPanel({ campaign, onSent }) {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
         Send
-      </button>
+      </Button>
     );
   }
 
   return (
-    <section aria-label="send campaign">
-      <h4>Send “{campaign.name}”</h4>
+    <section aria-label="send campaign" className="cs-panel" style={{ width: '100%' }}>
+      <h4 style={{ ...type.sectionH2 }}>Send “{campaign.name}”</h4>
 
       {!isActive && (
-        <p role="alert" data-testid="not-active">
+        <p role="alert" data-testid="not-active" style={{ margin: 0, color: color.warning, fontSize: 13, lineHeight: 1.5 }}>
           This campaign is {campaign.status}. Only an active campaign can send — activate it first.
         </p>
       )}
 
-      <label>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 7, ...type.label, color: color.textBody }}>
         Recipient addresses
-        <textarea
+        <Textarea
           aria-label="recipient addresses"
           rows={5}
           placeholder={'one per line\nor comma-separated'}
@@ -161,15 +163,15 @@ export default function SendPanel({ campaign, onSent }) {
           onChange={(e) => setRoster(e.target.value)}
         />
       </label>
-      <p data-testid="roster-count">
+      <p data-testid="roster-count" data-tabular style={{ margin: 0, fontSize: 13, color: color.textMuted }}>
         {addresses.length} address{addresses.length === 1 ? '' : 'es'}
       </p>
-      <p role="note">
+      <QuietNote role="note">
         Addresses are sent for this request only. The system stores a keyed hash to match each
         one against a consented participant and never keeps the address itself.
-      </p>
+      </QuietNote>
 
-      <label>
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, color: color.textBody }}>
         <input
           type="checkbox"
           aria-label="resend to already-sent recipients"
@@ -179,25 +181,29 @@ export default function SendPanel({ campaign, onSent }) {
         Resend to recipients already sent this campaign
       </label>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" style={{ margin: 0, color: color.danger, fontSize: 13 }}>{error}</p>}
 
-      <button
-        type="button"
-        onClick={() => run('send')}
-        disabled={busy || addresses.length === 0 || !isActive}
-      >
-        {busy && kind === 'send' ? 'Sending…' : 'Send simulation'}
-      </button>
-      <button
-        type="button"
-        onClick={() => run('notify')}
-        disabled={busy || addresses.length === 0}
-      >
-        {busy && kind === 'notify' ? 'Notifying…' : 'Notify enrolled'}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} disabled={busy}>
-        Close
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => run('send')}
+          disabled={busy || addresses.length === 0 || !isActive}
+        >
+          {busy && kind === 'send' ? 'Sending…' : 'Send simulation'}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => run('notify')}
+          disabled={busy || addresses.length === 0}
+        >
+          {busy && kind === 'notify' ? 'Notifying…' : 'Notify enrolled'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+          Close
+        </Button>
+      </div>
 
       <SendReceipt receipt={receipt} kind={kind} />
     </section>
