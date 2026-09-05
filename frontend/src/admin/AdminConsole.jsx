@@ -1,14 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
 import CampaignAnalytics from './CampaignAnalytics.jsx';
+import CohortPanel from './CohortPanel.jsx';
 import PhaseComparison from './PhaseComparison.jsx';
+import SendPanel from './SendPanel.jsx';
 
-// Minimal admin console shell (Phase 3). Login → campaign list with create and
-// lifecycle controls. Delivery is Phase 5; nothing here sends anything. Write
-// controls are shown only to Program Admins — Researchers get read-only view,
-// mirroring the backend role gating.
+// Minimal admin console shell (Phase 3). Login → two management areas:
+// campaigns (create, lifecycle, delivery, analytics) and cohorts & consent
+// (the consent gate and the participant roster, Gap 3). Write controls are
+// shown only to Program Admins — Researchers get a read-only view, mirroring
+// the backend role gating. The gating here is presentation: the authorization
+// itself lives on the routes (see consent.authz.guardrail).
 
 const PROGRAM_ADMIN = 'program_admin';
+
+// The two top-level areas. Campaigns is the default because it is where the
+// day-to-day work happens; cohorts is where the consent that permits any of it
+// is managed.
+const VIEWS = [
+  ['campaigns', 'Campaigns'],
+  ['cohorts', 'Cohorts & consent'],
+];
 
 // Which lifecycle actions are offered from each status (mirrors the backend
 // state machine so the UI never offers an illegal transition).
@@ -187,6 +199,7 @@ function CampaignList({
   canWrite,
   onTransition,
   onCloned,
+  onSent,
   analyticsFor,
   onToggleAnalytics,
   comparisonFor,
@@ -222,6 +235,7 @@ function CampaignList({
             {comparisonFor === c.id ? 'Hide phases' : 'Compare phases'}
           </button>
           {canWrite && <CloneCampaign campaign={c} onCloned={onCloned} />}
+          {canWrite && <SendPanel campaign={c} onSent={onSent} />}
           {analyticsFor === c.id && <CampaignAnalytics campaignId={c.id} />}
           {comparisonFor === c.id && <PhaseComparison campaignId={c.id} />}
         </li>
@@ -237,6 +251,7 @@ export default function AdminConsole() {
   const [loading, setLoading] = useState(Boolean(getToken()));
   const [analyticsFor, setAnalyticsFor] = useState(null);
   const [comparisonFor, setComparisonFor] = useState(null);
+  const [view, setView] = useState('campaigns');
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -286,6 +301,7 @@ export default function AdminConsole() {
     setCampaigns([]);
     setAnalyticsFor(null);
     setComparisonFor(null);
+    setView('campaigns');
   }
 
   function toggleAnalytics(id) {
@@ -313,24 +329,47 @@ export default function AdminConsole() {
   return (
     <section aria-label="admin console">
       <header>
-        <h2>Campaigns</h2>
         <p>
           Signed in as <strong>{admin.email}</strong> ({admin.role}){' '}
           <button onClick={signOut}>Sign out</button>
         </p>
+        <nav role="group" aria-label="console section">
+          {VIEWS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={view === value}
+              onClick={() => setView(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       </header>
       {error && <p role="alert">{error}</p>}
-      {canWrite && <CreateCampaign onCreated={refresh} />}
-      <CampaignList
-        campaigns={campaigns}
-        canWrite={canWrite}
-        onTransition={handleTransition}
-        onCloned={refresh}
-        analyticsFor={analyticsFor}
-        onToggleAnalytics={toggleAnalytics}
-        comparisonFor={comparisonFor}
-        onToggleComparison={toggleComparison}
-      />
+
+      {view === 'cohorts' ? (
+        <>
+          <h2>Cohorts &amp; consent</h2>
+          <CohortPanel canWrite={canWrite} />
+        </>
+      ) : (
+        <>
+          <h2>Campaigns</h2>
+          {canWrite && <CreateCampaign onCreated={refresh} />}
+          <CampaignList
+            campaigns={campaigns}
+            canWrite={canWrite}
+            onTransition={handleTransition}
+            onCloned={refresh}
+            onSent={refresh}
+            analyticsFor={analyticsFor}
+            onToggleAnalytics={toggleAnalytics}
+            comparisonFor={comparisonFor}
+            onToggleComparison={toggleComparison}
+          />
+        </>
+      )}
     </section>
   );
 }

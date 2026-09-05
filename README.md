@@ -40,6 +40,77 @@ npm run dev:backend                      # http://localhost:4000/health
 npm run dev:frontend                     # http://localhost:5173
 ```
 
+## Sending from the admin console
+
+Each campaign row in `#/admin` carries a **Send** control (Program Admin only —
+a Researcher never sees it, mirroring the backend role gate). It takes a roster
+of raw recipient addresses, one per line or comma-separated, and drives both
+sends: **Send simulation** (the lure) and **Notify enrolled** (the training
+email for participants the enrollment loop has already assigned).
+
+Two properties the panel deliberately holds to, matching the backend:
+
+- **The roster is transient.** It lives in component state only — never
+  `localStorage`, never a query string — and is dropped as soon as the send
+  returns. The backend stores only a keyed hash to match each address against a
+  consented participant (guardrail #6) and never persists the address itself.
+- **The receipt is aggregate-only.** It renders counts and withholding reasons
+  ("3 withheld by the consent gate"), never a per-recipient outcome. *Which* of
+  your staff clicked is precisely what this system is built not to answer
+  (guardrail #5), and that must not be softened here for convenience.
+
+`Send simulation` is disabled unless the campaign is `active`, mirroring the
+backend's lifecycle refusal. `SendPanel.test.jsx` pins all of the above.
+
+## Seeing real email locally (Mailpit)
+
+`MAIL_PROVIDER=console` is hermetic — it sends nothing, so the per-participant
+tracking token exists only in the database and has to be read out by hand. That
+is fine for CI, but it makes the loop unwalkable as a human.
+
+Set `MAIL_PROVIDER=smtp` and point it at a local mail catcher instead. Simulated
+mail then becomes *real* mail that still cannot reach a real person:
+
+```bash
+docker run -d --name catsim-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+```bash
+# backend/.env
+MAIL_PROVIDER=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+APP_BASE_URL=http://localhost:5173   # see "Two origins" below
+```
+
+Read the inbox at <http://localhost:8025>. Send a campaign, open the lure email,
+and click its link — no `psql`, no token copying. The enrollment notification
+arrives the same way with the training link.
+
+For a real deployment, set `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` to a transactional
+relay. `SMTP_PASS` is never logged, and an SMTP error is re-thrown with its error
+*code* only — provider messages routinely echo the recipient address back, and
+that address must not reach a log or a stack trace (guardrail #6).
+
+### Two origins: `PUBLIC_BASE_URL` vs `APP_BASE_URL`
+
+Participant links are served from two different places, and using the wrong one
+produces a link that silently resolves to a JSON `404` — nothing throws, and the
+send still reports success:
+
+| Link | Served by | Built from |
+|---|---|---|
+| `/t/<token>`, `/sim/<token>` | this API | `PUBLIC_BASE_URL` |
+| `#/enroll/<token>`, `#/learn` | the React app | `APP_BASE_URL` |
+
+`APP_BASE_URL` defaults to `PUBLIC_BASE_URL`, so a single-origin deployment (the
+frontend served by Express) needs no extra config. Set it whenever the frontend
+is served separately — the Vite dev server, or a static host in production.
+`tests/link.origins.test.js` pins the distinction.
+
+> Note `SIM_TRAINING_URL` must be **quoted** in a `.env` file. An unquoted `#`
+> opens an inline comment, so `SIM_TRAINING_URL=/#/learn` parses as `"/"`.
+
 ## Tests
 
 ```bash

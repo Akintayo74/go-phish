@@ -10,6 +10,7 @@ jest.mock('../src/repositories', () => ({
     list: jest.fn(),
     query: jest.fn(),
     findById: jest.fn(),
+    findByIdentifier: jest.fn(),
     createFromIdentifier: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
@@ -166,5 +167,68 @@ describe('GET /api/participants', () => {
     expect(where).toHaveBeenCalledWith({ cohort_id: 'c1' });
     expect(res.body).toEqual({ data: [storedRow] });
     expect(participants.list).not.toHaveBeenCalled();
+  });
+});
+
+// Identity resolution for an individual opt-out. Participants are pseudonymous
+// (only a keyed hash is stored), so an operator who receives "please remove me"
+// from an address has no way to find that row in the console without this.
+describe('POST /api/participants/lookup', () => {
+  test('resolves a raw identifier to the participant row', async () => {
+    participants.findByIdentifier.mockResolvedValue(storedRow);
+
+    const res = await request(app())
+      .post('/api/participants/lookup')
+      .set(...H())
+      .send({ identifier: RAW_IDENTIFIER })
+      .expect(200);
+
+    expect(participants.findByIdentifier).toHaveBeenCalledWith(RAW_IDENTIFIER);
+    expect(res.body).toEqual({ data: storedRow });
+  });
+
+  test('GUARDRAIL: never echoes the raw identifier back, on hit or miss', async () => {
+    participants.findByIdentifier.mockResolvedValue(storedRow);
+    const hit = await request(app())
+      .post('/api/participants/lookup')
+      .set(...H())
+      .send({ identifier: RAW_IDENTIFIER })
+      .expect(200);
+    expect(JSON.stringify(hit.body)).not.toContain(RAW_IDENTIFIER);
+
+    participants.findByIdentifier.mockResolvedValue(undefined);
+    const miss = await request(app())
+      .post('/api/participants/lookup')
+      .set(...H())
+      .send({ identifier: RAW_IDENTIFIER })
+      .expect(404);
+    expect(miss.body).toEqual({ error: 'participant_not_found' });
+    expect(JSON.stringify(miss.body)).not.toContain(RAW_IDENTIFIER);
+  });
+
+  test('GUARDRAIL: the resolved row carries no behavioural data', async () => {
+    // The row is the plain participants record. There is no click/submit flag
+    // on it to leak — those live on `interactions` and are deliberately never
+    // joined here (guardrail #5, aggregate-only reporting).
+    participants.findByIdentifier.mockResolvedValue(storedRow);
+    const res = await request(app())
+      .post('/api/participants/lookup')
+      .set(...H())
+      .send({ identifier: RAW_IDENTIFIER })
+      .expect(200);
+
+    for (const key of ['clicked', 'submitted', 'opened', 'interactions']) {
+      expect(res.body.data).not.toHaveProperty(key);
+    }
+  });
+
+  test('rejects a missing identifier with 400', async () => {
+    const res = await request(app())
+      .post('/api/participants/lookup')
+      .set(...H())
+      .send({})
+      .expect(400);
+    expect(res.body).toEqual({ error: 'identifier_required' });
+    expect(participants.findByIdentifier).not.toHaveBeenCalled();
   });
 });

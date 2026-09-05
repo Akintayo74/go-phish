@@ -49,17 +49,45 @@ const config = {
   // tracked link is `${publicBaseUrl}/t/<token>`.
   publicBaseUrl: (process.env.PUBLIC_BASE_URL || 'http://localhost:4000').replace(/\/+$/, ''),
 
+  // Origin serving the FRONTEND (admin console + CAT learning site + the
+  // participant training view at the #/enroll/<token> hash route). This is a
+  // different origin from publicBaseUrl whenever the React app is served
+  // separately from this API — the Vite dev server in development, a static
+  // host in production. It defaults to publicBaseUrl so a single-origin
+  // deployment (frontend served by this Express app) needs no extra config.
+  //
+  // Participant-facing links must be built against the right one of these two:
+  // tracked links (/t, /sim) are served by THIS API -> publicBaseUrl;
+  // training links (#/enroll, #/learn) are served by the app -> appBaseUrl.
+  appBaseUrl: (process.env.APP_BASE_URL || process.env.PUBLIC_BASE_URL || 'http://localhost:4000').replace(/\/+$/, ''),
+
   // Email provider for simulated sends. 'console' is the default, hermetic
   // transport used for local dev, tests, and CI: it records send metadata only
   // (never the recipient address or body) and dispatches nothing over the
   // network. A real deployment sets a transactional provider (e.g. 'sendgrid')
   // and its credentials; see src/services/mailer.js for the pluggable seam.
-  mailProvider: process.env.MAIL_PROVIDER || 'console',
+  // GUARDRAIL: the test suite is ALWAYS hermetic. NODE_ENV=test forces the
+  // console transport no matter what MAIL_PROVIDER says, because a developer or
+  // CI box with a real relay in its .env would otherwise dispatch real phishing
+  // simulation emails to the suite's fixture addresses on every `npm test`.
+  // Fail closed: a test run must never be able to reach the network.
+  // (createMailer({ provider: 'smtp', transport }) still works — an explicit
+  // provider argument bypasses this default, which is how the smtp tests run.)
+  mailProvider: NODE_ENV === 'test' ? 'console' : process.env.MAIL_PROVIDER || 'console',
   // From-address for simulated emails. Generic/fictional — must not impersonate
   // a real organization (guardrail: no real-brand impersonation).
   mailFrom: process.env.MAIL_FROM || 'IT Service Desk <no-reply@catsim.invalid>',
   // Optional API key for a real provider. Never logged.
   mailApiKey: process.env.MAIL_API_KEY || null,
+
+  // SMTP transport settings, used when MAIL_PROVIDER=smtp. Point these at a
+  // local catcher (Mailpit on :1025) in dev, or a real relay in production.
+  // SMTP_PASS, like mailApiKey, is NEVER logged.
+  smtpHost: process.env.SMTP_HOST || null,
+  smtpPort: parseInt(process.env.SMTP_PORT || '1025', 10),
+  smtpSecure: process.env.SMTP_SECURE === 'true',
+  smtpUser: process.env.SMTP_USER || null,
+  smtpPass: process.env.SMTP_PASS || null,
 
   // Outbound send throttle (messages/second) so a large cohort respects the
   // provider's rate limits. 0 disables throttling (used in tests).
