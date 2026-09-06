@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
-import { color, radius, type, tabular } from '../ui/theme.js';
+import { color, radius, type, tabular, layout } from '../ui/theme.js';
 import { Card, Button, Field, Input, Note, QuietNote } from '../ui/primitives.jsx';
 import ConsentControl, { ConsentBadge } from './ConsentControl.jsx';
 import ParticipantRoster, { rosterSummary } from './ParticipantRoster.jsx';
@@ -91,7 +91,7 @@ function CreateCohort({ onCreated }) {
       raised
       onSubmit={submit}
       aria-label="create cohort"
-      style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: layout.form }}
     >
       <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>New cohort</h3>
       <Field label="Name" htmlFor="new-cohort-name">

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import AdminConsole from './admin/AdminConsole.jsx';
 import LearningSite from './learn/LearningSite.jsx';
 import EnrollView from './enroll/EnrollView.jsx';
-import { color, radius, type } from './ui/theme.js';
-import { Wordmark, Card, Note, Button, QuietLink, Eyebrow } from './ui/primitives.jsx';
+import { color, radius, type, measure } from './ui/theme.js';
+import { Page, Wordmark, Card, Note, Button, QuietLink, Eyebrow } from './ui/primitives.jsx';
 
 // App shell. A tiny hash-based switch (no router dependency yet) selects between
 // the public landing view, the Phase 3 admin console at #/admin, and the public
@@ -29,6 +29,11 @@ function useHashRoute() {
 // note on the enrolment card below. The screen also carries the load-bearing
 // disclosure that simulations happen and are not scored against the individual.
 // Five blocks enter on a 40ms omRise stagger.
+//
+// It sits in the `page` shell: the drawn single column up to 1024px, wider on a
+// desktop so the card and the three-step strip are not a phone screenshot in the
+// middle of a monitor. Every run of text inside carries its own measure cap, so
+// widening the composition never widens a paragraph past readability.
 function Landing() {
   const [health, setHealth] = useState('checking…');
 
@@ -47,38 +52,31 @@ function Landing() {
   const rise = (i) => ({ ['--cs-rise-delay']: `${i * 40}ms` });
 
   return (
-    <div
-      style={{
-        background: color.surfaceRecessed,
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '26px 20px 30px',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 620, display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* 1 — header row */}
-        <header className="cs-rise" style={rise(0)}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <Wordmark as="h1" />
-            {/* The quiet door: the console is reachable but visually subordinate. */}
-            <QuietLink href="#/admin">Administrator sign-in</QuietLink>
-          </div>
-        </header>
+    <Page background={color.surfaceRecessed} width="page" gap={24}>
+      {/* 1 — header row */}
+      <header className="cs-rise" style={rise(0)}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <Wordmark as="h1" />
+          {/* The quiet door: the console is reachable but visually subordinate. */}
+          <QuietLink href="#/admin">Administrator sign-in</QuietLink>
+        </div>
+      </header>
 
-        {/* 2 — hero */}
+      {/* 2 + 3 — hero and enrolment card. Stacked as drawn on a phone; side by
+          side from 1024px (`.cs-landing-hero`), which is what stops the card
+          from stretching a full-width button across a monitor. */}
+      <div className="cs-landing-hero">
         <section className="cs-rise" style={{ ...rise(1), display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2 style={{ ...type.display, color: color.ink, maxWidth: '22ch', margin: 0 }}>
+          <h2 style={{ ...type.display, color: color.ink, maxWidth: '20ch', margin: 0 }}>
             Phishing awareness training for public service staff.
           </h2>
-          <p style={{ ...type.lead, color: color.textSecondary, maxWidth: '56ch', margin: 0 }}>
+          <p style={{ ...type.lead, color: color.textSecondary, maxWidth: '52ch', margin: 0 }}>
             The lessons are open to everyone — no sign-up, no email. If your organisation runs
             CAT-Sim, you may also receive a simulated phishing message at some point, which you are
             not told about in advance.
           </p>
         </section>
 
-        {/* 3 — enrolment card */}
         <Card
           as="section"
           className="cs-rise"
@@ -113,64 +111,64 @@ function Landing() {
             You cannot add yourself.
           </p>
         </Card>
+      </div>
 
-        {/* 4 — what happens after you enrol */}
-        <section className="cs-rise" style={{ ...rise(3), display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Eyebrow>How the programme works</Eyebrow>
-          <div
-            style={{
-              background: color.borderSubtle,
-              borderRadius: radius.card,
-              padding: 6,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-              gap: 2,
-            }}
-          >
-            {[
-              ['01', 'The lessons are open now — take them in any order.'],
-              ['02', 'If your organisation runs a simulation, a message arrives unannounced.'],
-              ['03', 'Either way you land on a page explaining what it was.'],
-            ].map(([num, text]) => (
-              <div key={num} style={{ background: color.surface, borderRadius: radius.nested, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span data-tabular style={{ fontSize: 13, fontWeight: 500, color: color.accent }}>{num}</span>
-                <span style={{ fontSize: 14, lineHeight: 1.5, color: color.textBody }}>{text}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 5 — footer */}
-        <footer
-          className="cs-rise"
+      {/* 4 — what happens after you enrol */}
+      <section className="cs-rise" style={{ ...rise(3), display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <Eyebrow>How the programme works</Eyebrow>
+        <div
           style={{
-            ...rise(4),
-            borderTop: `1px solid ${color.borderSubtle}`,
-            paddingTop: 18,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 12,
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            background: color.borderSubtle,
+            borderRadius: radius.card,
+            padding: 6,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 2,
           }}
         >
-          <p style={{ fontSize: 14, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
-            How your data is handled, and what a simulation does and does not record.
-          </p>
-          <a href="#/learn" style={{ textDecoration: 'none' }}>
-            <Button variant="secondary">
-              Participation notice{' '}
-              <span style={{ color: color.textMuted }} aria-hidden="true">→</span>
-            </Button>
-          </a>
-        </footer>
+          {[
+            ['01', 'The lessons are open now — take them in any order.'],
+            ['02', 'If your organisation runs a simulation, a message arrives unannounced.'],
+            ['03', 'Either way you land on a page explaining what it was.'],
+          ].map(([num, text]) => (
+            <div key={num} style={{ background: color.surface, borderRadius: radius.nested, padding: '16px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span data-tabular style={{ fontSize: 13, fontWeight: 500, color: color.accent }}>{num}</span>
+              <span style={{ ...type.body, ...measure, color: color.textBody }}>{text}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {/* Backend status kept as a quiet operational footer (health check). */}
-        <p style={{ fontSize: 12, color: color.textMuted, margin: 0, textAlign: 'center' }}>
-          Service status: <strong data-testid="health" style={{ fontWeight: 500, color: color.textSecondary }}>{health}</strong>
+      {/* 5 — footer */}
+      <footer
+        className="cs-rise"
+        style={{
+          ...rise(4),
+          borderTop: `1px solid ${color.borderSubtle}`,
+          paddingTop: 18,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 12,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <p style={{ ...type.body, ...measure, color: color.textMuted, margin: 0 }}>
+          How your data is handled, and what a simulation does and does not record.
         </p>
-      </div>
-    </div>
+        <a href="#/learn" style={{ textDecoration: 'none' }}>
+          <Button variant="secondary">
+            Participation notice{' '}
+            <span style={{ color: color.textMuted }} aria-hidden="true">→</span>
+          </Button>
+        </a>
+      </footer>
+
+      {/* Backend status kept as a quiet operational footer (health check). */}
+      <p style={{ fontSize: 12, color: color.textMuted, margin: 0, textAlign: 'center' }}>
+        Service status: <strong data-testid="health" style={{ fontWeight: 500, color: color.textSecondary }}>{health}</strong>
+      </p>
+    </Page>
   );
 }
 

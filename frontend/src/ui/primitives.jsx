@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { color, font, radius, type, tabular, HOLD_MS, HOLD_MS_REDUCED, prefersReducedMotion } from './theme.js';
+import { color, font, radius, type, layout, tabular, HOLD_MS, HOLD_MS_REDUCED, prefersReducedMotion } from './theme.js';
 
 // Shared CAT-Sim primitives. Every screen is built from these so the direction
 // rule ("the next action is the darkest thing on screen; exactly one ink-filled
@@ -7,6 +7,56 @@ import { color, font, radius, type, tabular, HOLD_MS, HOLD_MS_REDUCED, prefersRe
 // vigilance: `variant="primary"` is the only ink fill, `variant="accent"` is the
 // disclosure CTA (the one accent fill in the system), and everything else is a
 // bordered secondary, a quiet link, or an overflow item.
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+// The shell every screen sits in: a full-bleed background and one centred
+// column. `width` names a cap from `layout` — never a number at the call site,
+// because a bare maxWidth on a screen is exactly how this app ended up showing
+// a 390px column on a 1440px display.
+//
+//   column  a form or a short stack of cards
+//   prose   long-form text, held at a reading measure
+//   page    a full composition; widens on a desktop
+//   library the resource library; widens to a two-column grid of lessons
+//   lesson  the learning site's lesson view; grows a rail on a desktop
+//
+// The cap itself is a `.cs-shell--*` class (see global.css) because two of the
+// four change at the breakpoint. Everything else here is inline as usual, and
+// the outer flex centring means the column is still centred under `css: false`.
+export function Page({
+  background = color.surface,
+  width = 'column',
+  gap = 22,
+  top,
+  bottom,
+  className = '',
+  style,
+  children,
+  ...rest
+}) {
+  return (
+    <div style={{ background, minHeight: '100vh', display: 'flex', justifyContent: 'center' }}>
+      <div
+        className={`cs-shell cs-shell--${width} ${className}`.trim()}
+        style={{
+          width: '100%',
+          paddingTop: top != null ? top : layout.pagePadding,
+          paddingBottom: bottom != null ? bottom : layout.pagePadding,
+          display: 'flex',
+          flexDirection: 'column',
+          gap,
+          ...style,
+        }}
+        {...rest}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Brand
@@ -105,7 +155,10 @@ export function Button({ variant = 'secondary', full = false, large = false, sty
 
 // A quiet grey link (nav doors, back links). Renders an <a> or a <button>
 // depending on whether an href is supplied.
-export function QuietLink({ href, onClick, children, style, ...rest }) {
+export function QuietLink({ href, onClick, children, style, className = '', ...rest }) {
+  // Merged, not overwritten: a caller passing a layout class (e.g. the lesson
+  // view's `cs-learn-back`) must not silently drop the focus ring.
+  const cls = `cs-focusable ${className}`.trim();
   const shared = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -124,13 +177,13 @@ export function QuietLink({ href, onClick, children, style, ...rest }) {
   };
   if (href) {
     return (
-      <a className="cs-focusable" href={href} style={shared} {...rest}>
+      <a className={cls} href={href} style={shared} {...rest}>
         {children}
       </a>
     );
   }
   return (
-    <button className="cs-focusable" type="button" onClick={onClick} style={shared} {...rest}>
+    <button className={cls} type="button" onClick={onClick} style={shared} {...rest}>
       {children}
     </button>
   );

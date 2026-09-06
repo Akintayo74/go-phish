@@ -10,6 +10,11 @@
  *
  * Elevation rule: there are NO shadows. Depth is the background ramp plus 1px
  * borders. The only box-shadow anywhere is the focus ring below.
+ *
+ * It also carries LAYOUT — the `.cs-shell` width caps and the learning site's
+ * desktop rail — because those are the only rules in the system that change at
+ * a breakpoint, and a media query cannot live in a style attribute. Anything a
+ * clamp() can express (fluid type, fluid gutters) stays in ui/theme.js.
  */
 
 :root {
@@ -36,6 +41,12 @@
   --cs-warning: #8a5200;
 
   --cs-font: 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Page gutter, mirrored from layout.gutter in ui/theme.js — 20px on the drawn
+     390px phone, 40px from 1280px up. ui/theme.test.js asserts the two stay
+     identical, because a hand-copied slope is exactly the kind of thing that
+     drifts silently. */
+  --cs-gutter: clamp(20px, 11.24px + 2.247vw, 40px);
 }
 
 * {
@@ -118,31 +129,157 @@ button {
   transform: scale(0.985);
 }
 
+/* --- Page shells ----------------------------------------------------------
+   The centred column every screen sits in. Width caps live here rather than in
+   an inline style because two of them change at the desktop breakpoint, and a
+   media query cannot be written into a style attribute. The caps are the OUTER
+   width — the gutter is inside them, since box-sizing is border-box globally.
+
+   Below 1024px every screen is one narrow column, exactly as drawn at 390px.
+   Above it, only the screens whose content is a composition widen — the landing
+   page, the resource library's grid, and the lesson view that grows a rail.
+   `--prose` and `--column` never do, because a 1000px-wide paragraph is harder
+   to read, not easier. Mirrors the `layout` tokens in ui/theme.js. */
+.cs-shell {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--cs-gutter);
+}
+.cs-shell--column {
+  max-width: 760px;
+}
+.cs-shell--prose,
+.cs-shell--lesson,
+.cs-shell--library,
+.cs-shell--page {
+  max-width: 740px;
+}
+
+@media (min-width: 1024px) {
+  .cs-shell--page {
+    max-width: 1120px;
+  }
+  .cs-shell--lesson {
+    max-width: 1020px;
+  }
+  .cs-shell--library {
+    max-width: 900px;
+  }
+}
+
+/* --- Landing: the desktop hero --------------------------------------------
+   Two blocks that stack as drawn on a phone and sit side by side from 1024px.
+   The card column is capped rather than fluid: a "Start the lessons" button is
+   a button, and stretching one to 1000px is the same mistake as stretching a
+   paragraph. */
+.cs-landing-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .cs-landing-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    gap: 56px;
+    /* Centred, not top-aligned: the card is much the taller of the two, and
+       hanging the headline off the top of it leaves a hole where the reader's
+       eye lands first. */
+    align-items: center;
+    padding-block: 16px;
+  }
+}
+
+/* --- Learning site: the desktop rail ---------------------------------------
+   On a phone a lesson is one column with a back link at the top. From 1024px
+   the same markup becomes rail + article: every lesson in the library is one
+   click away and stays in view while you read, which is the thing a 430px
+   column stretched to 1440px could never offer. The rail is display:none below
+   the breakpoint, so it costs a phone nothing (and leaves the accessibility
+   tree, so the back link is not a duplicate of it). */
+.cs-learn-rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .cs-learn-body {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  /* A grid item's automatic minimum size is its content, which would let a long
+     unbroken string in a lesson push the column past its track. */
+  .cs-learn-body > .cs-learn-main {
+    min-width: 0;
+  }
+  .cs-learn-rail {
+    display: block;
+    position: sticky;
+    /* Clears the page's top padding so the rail does not touch the viewport. */
+    top: 28px;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* The back link is the rail's job up here. */
+  .cs-learn-back {
+    display: none;
+  }
+  .cs-learn-rail::-webkit-scrollbar {
+    width: 6px;
+  }
+  .cs-learn-rail::-webkit-scrollbar-thumb {
+    background: var(--cs-border);
+    border-radius: 999px;
+  }
+}
+
 /* Lesson prose (2e). The markdown renderer emits plain h1/h2/p/blockquote/ul/ol;
    this styles them to the lesson typography without the renderer needing to know
-   about the design system. */
+   about the design system.
+
+   The vertical rhythm is set for the desktop measure as well as the phone one:
+   at ~66 characters a line, 14px between paragraphs reads as a single wall of
+   text, so the stack opens up with the type. */
 .cs-prose {
   color: var(--cs-text-body);
-  font-size: 16px;
+  font-size: clamp(16px, 15.56px + 0.112vw, 17px);
   line-height: 1.65;
+  /* A backstop, NOT the measure. The `.cs-shell` cap is what actually sets the
+     reading width, and it applies to the quiz card and headings beside the
+     prose as well — so they all share one right edge. This only catches prose
+     dropped into a container with no cap of its own, which is why it sits well
+     above the ideal measure rather than at it. */
+  max-width: 78ch;
 }
 .cs-prose h1 {
-  font-size: 27px;
+  font-size: clamp(27px, 23.06px + 1.011vw, 36px);
   line-height: 1.14;
   letter-spacing: -0.03em;
   margin: 0 0 4px;
 }
 .cs-prose h2 {
-  font-size: 18px;
+  font-size: clamp(18px, 16.69px + 0.337vw, 21px);
   line-height: 1.3;
   letter-spacing: -0.02em;
-  margin: 8px 0 0;
+  margin: clamp(22px, 18.5px + 0.9vw, 30px) 0 0;
 }
-.cs-prose p {
+/* The block rhythm. `.cs-prose > *` rather than `.cs-prose p` on purpose: a
+   type-selector reset (0,1,1) outranks the owl selector below (0,1,0), which is
+   why paragraphs used to stack with NO space between them at all and a lesson
+   read as one wall of text. Same specificity now, so source order decides and
+   the owl wins — while the h2 and blockquote rules, which are type selectors,
+   still deliberately outrank it to open a wider gap. */
+.cs-prose > * {
   margin: 0;
 }
 .cs-prose > * + * {
-  margin-top: 14px;
+  margin-top: clamp(14px, 12.24px + 0.449vw, 18px);
+}
+.cs-prose li + li {
+  margin-top: 6px;
 }
 .cs-prose a {
   color: var(--cs-accent);
@@ -155,17 +292,17 @@ button {
   border-radius: 6px;
 }
 .cs-prose blockquote {
-  margin: 14px 0 0;
+  margin: clamp(18px, 15.37px + 0.674vw, 24px) 0 0;
   background: var(--cs-accent-wash);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: clamp(14px, 12.25px + 0.449vw, 18px) clamp(16px, 14.25px + 0.449vw, 20px);
   color: var(--cs-text-body);
-  font-size: 16px;
+  font-size: clamp(16px, 15.56px + 0.112vw, 17px);
   line-height: 1.6;
 }
 .cs-prose ul,
 .cs-prose ol {
-  margin: 0;
+  /* No margin here — see the note on `.cs-prose > *` above. */
   padding-left: 22px;
   line-height: 1.6;
 }

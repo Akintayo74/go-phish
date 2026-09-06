@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
-import { color, radius, type } from '../ui/theme.js';
+import { color, radius, type, layout } from '../ui/theme.js';
 import { Button, Field, Input, Note, QuietNote } from '../ui/primitives.jsx';
 
 // Shared bits of the roster's look, so the forms and action controls read as
@@ -16,6 +16,9 @@ const wellStyle = {
   border: `1px solid ${color.borderSubtle}`,
   borderRadius: radius.card,
   padding: 18,
+  // Entry form, not a table: capped so its fields stay a scannable length in
+  // the console's wide pane. See layout.form.
+  maxWidth: layout.form,
 };
 const wellHeading = { ...type.sectionH2, color: color.ink, margin: 0 };
 // The per-row actions are secondary and quiet: smaller than a page button so a

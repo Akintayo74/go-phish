@@ -4,7 +4,7 @@ import { learnApi } from '../learn/api.js';
 import { Markdown } from '../learn/markdown.jsx';
 import Quiz from '../learn/Quiz.jsx';
 import { color, radius, type } from '../ui/theme.js';
-import { Wordmark, Note } from '../ui/primitives.jsx';
+import { Page, Wordmark, Note } from '../ui/primitives.jsx';
 
 // Phase 8 — the participant's training landing, reached from the enrollment
 // email at #/enroll/<token>. It loads THEIR assignment by the opaque token,
@@ -14,23 +14,17 @@ import { Wordmark, Note } from '../ui/primitives.jsx';
 //
 // The tone is supportive and non-punitive by design (guardrail/PRD ethics):
 // this is a short lesson, not a reprimand. Styled to the "Civic" design system,
-// mobile-first, and it shares the disclosure page's job of relief — the
-// reassurance ("nothing you typed was captured") leads.
+// and it shares the disclosure page's job of relief — the reassurance ("nothing
+// you typed was captured") leads.
+//
+// It renders a full lesson, so it sits in the `prose` shell: one column held at
+// a reading measure on any screen. It gets no lesson rail — this is the one
+// lesson this person was assigned, not a library to browse.
 
 // Extract the token from a `#/enroll/<token>` hash.
 export function tokenFromHash(hash) {
   const m = /^#\/enroll\/([^/?#]+)/.exec(hash || '');
   return m ? decodeURIComponent(m[1]) : null;
-}
-
-function Screen({ children }) {
-  return (
-    <div style={{ background: color.surfaceRecessed, minHeight: '100vh', display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 560, padding: '26px 20px 30px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 function LessonBody({ slug }) {
@@ -96,7 +90,7 @@ export default function EnrollView({ hash }) {
   }, [token]);
 
   return (
-    <Screen>
+    <Page background={color.surfaceRecessed} width="prose">
       <header>
         <Wordmark />
       </header>
@@ -163,6 +157,6 @@ export default function EnrollView({ hash }) {
           </>
         )}
       </section>
-    </Screen>
+    </Page>
   );
 }

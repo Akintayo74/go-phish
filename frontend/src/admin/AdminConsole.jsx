@@ -4,7 +4,7 @@ import CampaignAnalytics from './CampaignAnalytics.jsx';
 import CohortPanel from './CohortPanel.jsx';
 import PhaseComparison from './PhaseComparison.jsx';
 import SendPanel from './SendPanel.jsx';
-import { color, radius, type } from '../ui/theme.js';
+import { color, radius, type, layout } from '../ui/theme.js';
 import { Wordmark, Card, Button, Pill, StatusDot, Field, Input, QuietNote } from '../ui/primitives.jsx';
 
 // Admin console (Phase 3), rebuilt on the "Civic" design system's console shell
@@ -140,7 +140,7 @@ function CreateCampaign({ onCreated }) {
       onSubmit={submit}
       aria-label="create campaign"
       raised
-      style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: layout.form }}
     >
       <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>New campaign</h3>
       <Input
@@ -490,7 +490,22 @@ export default function AdminConsole() {
     >
       <Sidebar admin={admin} view={view} setView={setView} onSignOut={signOut} counts={counts} />
 
-      <div style={{ flex: 1, minWidth: 0, padding: '28px 30px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {/* The console has the opposite desktop problem to the public screens: the
+          pane was unbounded, so on a wide display a roster row stretched across
+          the whole monitor and became unscannable. It is capped at
+          layout.console and centred in whatever space is left beside the
+          sidebar; the padding grows with the viewport like every other screen's
+          gutter. */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          padding: `${layout.pagePadding} ${layout.gutter}`,
+          display: 'flex',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: layout.console, display: 'flex', flexDirection: 'column', gap: 22 }}>
         {error && <p role="alert" style={{ color: color.danger, fontSize: 14, margin: 0 }}>{error}</p>}
 
         {view === 'cohorts' ? (
@@ -527,6 +542,7 @@ export default function AdminConsole() {
             />
           </>
         )}
+        </div>
       </div>
     </section>
   );
