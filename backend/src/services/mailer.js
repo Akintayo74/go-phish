@@ -120,12 +120,107 @@ function createSmtpProvider({ sink, transport, ...opts } = {}) {
   };
 }
 
+// Parse a `MAIL_FROM` string into the { name, email } shape a JSON email API
+// wants. Accepts both "Display Name <addr@host>" and a bare "addr@host".
+function parseFromAddress(str) {
+  const s = String(str || '').trim();
+  const m = s.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (m) {
+    const name = m[1].trim();
+    return name ? { name, email: m[2].trim() } : { email: m[2].trim() };
+  }
+  return { email: s };
+}
+
+// The Brevo (HTTP API) provider. Sends over HTTPS (port 443) via Brevo's
+// transactional email API instead of SMTP. This exists because many PaaS hosts
+// (Render included) BLOCK outbound SMTP ports — a send then hangs for the full
+// socket timeout and fails, with nothing ever reaching the provider. Port 443
+// is never blocked, so the API path works where smtp cannot connect.
+//
+// Config: MAIL_API_KEY holds the Brevo API key (v3 key, starts `xkeysib-`);
+// MAIL_FROM is the verified sender. `fetchImpl` is injectable so tests need no
+// network. Records METADATA ONLY (guardrail #2) and, like the smtp provider,
+// never lets the recipient address escape into an error message — a failure is
+// re-thrown as a status/code only.
+function createBrevoProvider({ sink, fetchImpl, apiKey, from, endpoint } = {}) {
+  const key = apiKey !== undefined ? apiKey : config.mailApiKey;
+  const fromStr = from !== undefined ? from : config.mailFrom;
+  const url = endpoint || 'https://api.brevo.com/v3/smtp/email';
+
+  // Fail closed at construction rather than silently not sending a campaign.
+  if (!key) {
+    throw new Error('mailer: MAIL_API_KEY is required for the brevo provider');
+  }
+
+  const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  if (!doFetch) {
+    throw new Error('mailer: no fetch available for the brevo provider (Node >= 18)');
+  }
+
+  const sender = parseFromAddress(fromStr);
+
+  return {
+    name: 'brevo',
+    async send(message) {
+      if (!message || !message.to) {
+        throw new Error('mailer: `to` is required');
+      }
+
+      let res;
+      try {
+        res = await doFetch(url, {
+          method: 'POST',
+          headers: {
+            'api-key': key,
+            'content-type': 'application/json',
+            accept: 'application/json',
+          },
+          body: JSON.stringify({
+            sender,
+            to: [{ email: message.to }],
+            subject: message.subject,
+            htmlContent: message.html,
+            textContent: message.text,
+          }),
+        });
+      } catch (err) {
+        // Network/DNS/timeout error. Never surface the raw message (belt and
+        // braces — a fetch error should not carry the recipient, but we keep
+        // the same code-only discipline as the smtp provider).
+        const code = (err && err.code) || 'network_error';
+        throw new Error(`mailer: brevo send failed (${code})`);
+      }
+
+      if (!res || !res.ok) {
+        // Brevo echoes the offending address in its JSON error body, so the
+        // body must NEVER be read into the thrown message. The HTTP status
+        // alone keeps a misconfiguration debuggable (401 = bad key, 400 = bad
+        // sender/payload) without leaking PII.
+        const status = res ? res.status : 'no_response';
+        throw new Error(`mailer: brevo send failed (http_${status})`);
+      }
+
+      // Success — pull the provider message id if present, else synthesize one.
+      let messageId = newMessageId();
+      try {
+        const data = await res.json();
+        if (data && data.messageId) messageId = String(data.messageId);
+      } catch (_err) {
+        // A 2xx with an unparseable body is still an accepted send.
+      }
+      return recordSend({ provider: 'brevo', messageId, sink });
+    },
+  };
+}
+
 // Provider registry. Real providers register here; an unknown provider name
 // fails LOUDLY rather than silently no-op'ing a real campaign (fail closed —
 // better a visible config error than a silent non-send).
 const PROVIDERS = {
   console: createConsoleProvider,
   smtp: createSmtpProvider,
+  brevo: createBrevoProvider,
 };
 
 function createMailer({ provider = config.mailProvider, ...opts } = {}) {
@@ -138,4 +233,11 @@ function createMailer({ provider = config.mailProvider, ...opts } = {}) {
   return factory(opts);
 }
 
-module.exports = { createMailer, createConsoleProvider, createSmtpProvider, PROVIDERS };
+module.exports = {
+  createMailer,
+  createConsoleProvider,
+  createSmtpProvider,
+  createBrevoProvider,
+  parseFromAddress,
+  PROVIDERS,
+};
