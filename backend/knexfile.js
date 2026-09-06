@@ -23,6 +23,17 @@ const base = {
   },
 };
 
+// TLS for the production connection. Managed Postgres (Render, Neon, Supabase,
+// Railway, …) terminates TLS with a certificate signed by a root the Node
+// process does not carry, so `rejectUnauthorized: false` keeps the transport
+// encrypted without failing verification against an unknown CA. A connection
+// that stays inside the provider's private network needs no TLS at all — set
+// PGSSLMODE=disable there (Render's *internal* database URL is that case).
+function productionSsl() {
+  if (process.env.PGSSLMODE === 'disable') return false;
+  return { rejectUnauthorized: false };
+}
+
 module.exports = {
   development: base,
   test: {
@@ -33,6 +44,8 @@ module.exports = {
   },
   production: {
     ...base,
+    // The connection becomes an object so `ssl` can ride alongside the URL.
+    connection: { connectionString: connection, ssl: productionSsl() },
     pool: { min: 2, max: 20 },
   },
 };

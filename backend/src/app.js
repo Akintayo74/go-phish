@@ -3,7 +3,10 @@
 // Express app factory. Kept separate from the server entrypoint (index.js)
 // so tests can import a fresh app without binding a port.
 
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
+const config = require('./config');
 const { createRequestLogger } = require('./middleware/requestLogger');
 const { requireAuth } = require('./middleware/auth');
 const healthRoutes = require('./routes/health');
@@ -18,7 +21,18 @@ const learnRoutes = require('./routes/learn');
 const enrollRoutes = require('./routes/enroll');
 const analyticsRoutes = require('./routes/analytics');
 
-function createApp({ logger } = {}) {
+// Path prefixes this API owns. The SPA fallback below must never answer for
+// them: an unknown /api route has to 404 as JSON, not come back as index.html
+// with a 200 that the client then fails to parse as JSON.
+const SERVER_PREFIXES = ['/api', '/t', '/sim', '/health'];
+
+function isServerPath(reqPath) {
+  return SERVER_PREFIXES.some(
+    (prefix) => reqPath === prefix || reqPath.startsWith(`${prefix}/`)
+  );
+}
+
+function createApp({ logger, frontendDist = config.frontendDistPath } = {}) {
   const app = express();
 
   // Body parsing. NOTE: parsed bodies are used by route handlers only.
@@ -76,6 +90,48 @@ function createApp({ logger } = {}) {
   // the admin console). The POST handler discards all posted values — see
   // routes/sim.js and views/simPages.js (guardrail #1).
   app.use('/sim', simRoutes);
+
+  // Single-origin static hosting. The React client calls this API with RELATIVE
+  // paths (`fetch('/api/...')`) and this app registers no CORS middleware, so
+  // the app and the API must share an origin — in a deployment, this process
+  // serves the built SPA. In development Vite serves it on :5173 and proxies
+  // /api back here, so `frontend/dist` is absent and none of this mounts.
+  const indexHtml = frontendDist ? path.join(frontendDist, 'index.html') : null;
+  if (indexHtml && fs.existsSync(indexHtml)) {
+    app.use(
+      express.static(frontendDist, {
+        // index.html is served by the fallback below, never by the static
+        // layer, so exactly one place decides what a document request returns.
+        index: false,
+        setHeaders(res, filePath) {
+          // Vite fingerprints asset filenames, so those are safe to cache
+          // immutably. index.html must NOT be, or a redeploy keeps handing out
+          // a document that references the previous build's asset hashes.
+          res.setHeader(
+            'Cache-Control',
+            filePath === indexHtml
+              ? 'no-cache'
+              : 'public, max-age=31536000, immutable'
+          );
+        },
+      })
+    );
+
+    // SPA fallback. Client routing is hash-based (`#/admin`, `#/learn`,
+    // `#/enroll/<token>`), so the server only ever hands back index.html for a
+    // document request outside its own prefixes; the hash never reaches here.
+    app.get('*', (req, res, next) => {
+      if (isServerPath(req.path)) return next();
+      // An asset-shaped request that got past express.static does not exist.
+      // Let it fall through to the JSON 404 rather than answering a missing
+      // .js/.css/.png with an HTML body and a 200.
+      if (path.extname(req.path)) return next();
+      // Set explicitly: this path bypasses express.static (and its setHeaders),
+      // and sendFile's own default is `public, max-age=0`.
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(indexHtml);
+    });
+  }
 
   // 404
   app.use((req, res) => {

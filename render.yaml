@@ -1,0 +1,85 @@
+# Render blueprint for CAT-Sim — https://render.com/docs/blueprint-spec
+#
+# One web service + one Postgres. The service is deliberately SINGLE-ORIGIN: it
+# serves the API *and* the built React app from the same host, because the
+# client calls the API with relative paths (`fetch('/api/...')`) and the Express
+# app registers no CORS middleware. Splitting the frontend onto a static host
+# would break every API call in the browser.
+#
+# Single origin also collapses the two participant-facing base URLs into one:
+# tracked links (/t, /sim) and training links (#/learn, #/enroll) share a host,
+# so APP_BASE_URL and SIM_TRAINING_URL need no override at all.
+#
+# First deploy: Render dashboard -> New -> Blueprint -> point at this repo.
+# Then run the seed once from the service shell:  npm run seed:run
+
+databases:
+  - name: catsim-db
+    databaseName: catsim
+    user: catsim
+    plan: free
+    # NOTE: Render deletes a free Postgres instance 30 days after creation.
+    # Move to a paid plan before this is anything but a throwaway test URL.
+
+services:
+  - type: web
+    name: catsim
+    runtime: node
+    plan: free
+    # NOTE: a free web service spins down after ~15 minutes idle, so the first
+    # request after a quiet period (including a participant's tracked-link
+    # click) waits out a cold start.
+    buildCommand: npm ci && npm run build
+    # Runs against the new release before it takes traffic, so the schema is
+    # never behind the code that queries it.
+    preDeployCommand: npm run migrate:latest
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: catsim-db
+          property: connectionString
+
+      # The connection string above is Render's INTERNAL one: it stays on the
+      # private network, where Postgres neither offers nor needs TLS. Drop this
+      # (or set it to anything else) if you point DATABASE_URL at an external
+      # provider — backend/knexfile.js then negotiates TLS instead.
+      - key: PGSSLMODE
+        value: disable
+
+      # Both default to insecure dev placeholders in backend/src/config/index.js.
+      # A known IDENTITY_HASH_SECRET makes stored contact hashes guessable; a
+      # known JWT_SECRET lets admin sessions be forged. Generated per service and
+      # never shown in the repo. Rotating either is a breaking change: the hash
+      # secret invalidates every stored participant hash.
+      - key: IDENTITY_HASH_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+
+      # PUBLIC_BASE_URL is intentionally absent: config falls back to Render's
+      # own RENDER_EXTERNAL_URL, so tracked links resolve to the real host
+      # without a manual step. Set it explicitly only behind a custom domain.
+
+      # Hermetic by default — records send metadata and dispatches nothing.
+      # Switch to `smtp` with SMTP_HOST/PORT/USER/PASS to exercise the real
+      # send -> click -> train loop.
+      - key: MAIL_PROVIDER
+        value: console
+
+      # GUARDRAIL: generic and fictional. Neither may ever name a real
+      # organization (IMPLEMENTATION_PLAN.md §1, checklist §2).
+      - key: SIM_BRAND_NAME
+        value: ACME Corp — Staff Portal
+      - key: MAIL_FROM
+        value: IT Service Desk <no-reply@catsim.invalid>
+
+      # Seeds the demo operators. Pre-launch checklist §6 — the seed refuses to
+      # run in production without it rather than installing the dev password
+      # that is published in this repository.
+      - key: SEED_ADMIN_PASSWORD
+        generateValue: true

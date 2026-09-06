@@ -9,6 +9,10 @@
     "frontend"
   ],
   "scripts": {
+    "build": "npm run build --workspace frontend",
+    "start": "npm start --workspace backend",
+    "migrate:latest": "npm run migrate:latest --workspace backend",
+    "seed:run": "npm run seed:run --workspace backend",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm --prefix e2e test",
     "lint": "npm run lint --workspaces --if-present",
