@@ -148,10 +148,28 @@ function createApp({ logger, frontendDist = config.frontendDistPath } = {}) {
     res.status(404).json({ error: 'not_found' });
   });
 
-  // Centralized error handler — never echoes the request body back.
+  // Centralized error handler — never echoes the request body back, and never
+  // logs it either (guardrail #2: no body/query/headers ever reach a log sink).
+  //
+  // A 5xx is a SERVER fault the operator has to be able to see. Without this,
+  // an unexpected throw — e.g. a mail provider that cannot be built from its
+  // env vars (services/mailer.js fails closed) — surfaced only as an opaque
+  // `internal_error` to the client and left NO trace in the logs, so the real
+  // cause was invisible. We log request metadata plus the error's own
+  // message/stack, which our code controls and keeps free of recipient
+  // addresses and secrets (the mailer re-throws status/code only). We do NOT
+  // log 4xx (ordinary client validation) to keep the stream readable.
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     const status = err.status || 500;
+    if (status >= 500) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[error] method=${req.method} path=${req.path} status=${status} :: ${
+          (err && (err.stack || err.message)) || err
+        }`
+      );
+    }
     res.status(status).json({ error: err.publicMessage || 'internal_error' });
   });
 

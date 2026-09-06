@@ -126,6 +126,37 @@ services:
       # MAIL_FROM must still be a verified Brevo sender. A failed send now records
       # a safe reason code in the send receipt + logs (e.g. `brevo:http_401` = bad
       # key) so the cause is visible instead of a silent `failed` count.
+      #
+      # NOTE ON BREVO + THE LURE BUTTON: Brevo force-wraps every link through its
+      # click-tracking domain and offers NO way to disable it (per message, per
+      # link, or account-wide). On a new account that wrapper breaks the lure's
+      # "Verify my account" button ("link temporarily unavailable"). If you need
+      # the clickable lure to work, use `mailgun` below instead — it disables
+      # click tracking per message so the real /t/<token> link is sent intact.
+      #
+      #   MAIL_PROVIDER=mailgun  + MAIL_API_KEY + MAILGUN_DOMAIN
+      #
+      #   - key: MAIL_API_KEY        # Mailgun API key — SECRET
+      #     sync: false
+      #   - key: MAILGUN_DOMAIN      # sending domain: a sandbox
+      #     sync: false              # (sandboxXXXX.mailgun.org, delivers only to
+      #                              # Authorized Recipients) for testing, or a
+      #                              # verified domain for a real send
+      #   - key: MAILGUN_API_BASE_URL  # only for an EU-region account
+      #     value: "https://api.eu.mailgun.net"
+      #
+      # The `mailgun` provider also posts over HTTPS/443 (SMTP-block-immune),
+      # fails CLOSED without MAIL_API_KEY *or* MAILGUN_DOMAIN, records metadata
+      # only, and turns off click/open tracking per message so the tracked lure
+      # link is never rewritten. MAIL_FROM works from the domain you send from.
+      #
+      # ESP ANTI-PHISHING AUP (applies to Brevo, Mailgun, SendGrid, SES, all of
+      # them): a "verify your account" lure with a login link is exactly what
+      # their fraud scanners flag, and an account can be SUSPENDED for it. A
+      # Mailgun SANDBOX domain lowers this risk (it only reaches addresses you
+      # authorize, so it reads as testing, not a live campaign). For a real study
+      # you need a provider that has approved you for authorized phishing
+      # simulation, or self-hosted sending infrastructure.
       # -------------------------------------------------------------------------
 
       # GUARDRAIL: generic and fictional. Neither may ever name a real
