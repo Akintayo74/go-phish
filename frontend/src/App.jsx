@@ -87,7 +87,7 @@ function Landing() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>Start the training</h3>
             <p style={{ fontSize: 14, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
-              Five short lessons, open to anyone. Nothing to sign up for, and we record nothing
+              Short lessons, open to anyone. Nothing to sign up for, and we record nothing
               about who reads what.
             </p>
           </div>

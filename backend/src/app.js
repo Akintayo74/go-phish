@@ -44,7 +44,17 @@ function createApp({ logger, frontendDist = config.frontendDistPath } = {}) {
   app.use(createRequestLogger(logger));
 
   // Routes
+  //
+  // Health is mounted TWICE, on purpose. `/health` is the platform's check
+  // (`render.yaml` healthCheckPath) and must keep that exact path. `/api/health`
+  // is what the browser calls: the SPA reaches the API only through `/api`
+  // (that is the sole path the Vite dev proxy forwards, and the only prefix the
+  // client is built against), so a client-side health check on the bare
+  // `/health` would hit the dev server instead of this process. Serving both is
+  // one line; the alternative is a second proxy rule plus a build-time origin
+  // difference between dev and production.
   app.use('/', healthRoutes);
+  app.use('/api', healthRoutes);
 
   // Phase 3 — admin auth. Login is public; everything else below requires a
   // valid admin session (guardrail: the consent/participant data is sensitive

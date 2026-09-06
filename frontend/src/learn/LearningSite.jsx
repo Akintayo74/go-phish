@@ -279,7 +279,18 @@ export default function LearningSite({ hash }) {
   return (
     <Page width={slug ? 'lesson' : 'library'} gap={22}>
       <header>
-        <Wordmark />
+        {/* The way back to the landing page. Until now neither the learning
+            site nor the console linked home, so a participant who followed
+            "Start the lessons" could only leave with the browser's back
+            button — which is not a control a public page may rely on. */}
+        <a
+          href="#/"
+          className="cs-focusable"
+          aria-label="CAT-Sim home"
+          style={{ display: 'inline-flex', textDecoration: 'none', borderRadius: radius.nav }}
+        >
+          <Wordmark />
+        </a>
       </header>
       {/* One column on a phone; rail + article from 1024px. On the index the
           page IS the lesson list, so no rail and no grid. */}

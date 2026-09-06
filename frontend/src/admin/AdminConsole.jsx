@@ -325,7 +325,16 @@ function Sidebar({ admin, view, setView, onSignOut, counts }) {
       }}
     >
       <div style={{ padding: '0 8px' }}>
-        <Wordmark />
+        {/* Leaves the console for the public landing page. The session is not
+            ended — the token stays in storage, so #/admin comes straight back. */}
+        <a
+          href="#/"
+          className="cs-focusable"
+          aria-label="CAT-Sim home"
+          style={{ display: 'inline-flex', textDecoration: 'none', borderRadius: radius.nav }}
+        >
+          <Wordmark />
+        </a>
       </div>
 
       <nav role="group" aria-label="console section" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

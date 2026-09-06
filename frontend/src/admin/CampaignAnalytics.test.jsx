@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import CampaignAnalytics from './CampaignAnalytics.jsx';
 
 vi.mock('./api.js', () => ({
   api: { campaignAnalytics: vi.fn() },
+  fetchAnalyticsExport: vi.fn(),
 }));
 
-import { api } from './api.js';
+import { api, fetchAnalyticsExport } from './api.js';
 
 function report({ groupBy = 'cohort' } = {}) {
   return {
@@ -109,5 +110,59 @@ describe('CampaignAnalytics', () => {
     api.campaignAnalytics.mockRejectedValue(new Error('boom'));
     render(<CampaignAnalytics campaignId="c1" />);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/could not load analytics/i));
+  });
+
+  // The CSV export endpoint existed from Phase 9 but had no control anywhere in
+  // the console, so the one deliverable a Researcher actually needs was
+  // reachable only by hand-crafting an authenticated request. These pin the
+  // control, and that it exports the grouping currently on screen.
+  describe('CSV export', () => {
+    beforeEach(() => {
+      // jsdom implements no part of the blob-download dance: no object URLs,
+      // and an anchor click on one is "navigation", which it refuses. Stubbing
+      // the click keeps the assertion on what we control — that the export was
+      // fetched and the object URL released.
+      vi.stubGlobal('URL', {
+        ...URL,
+        createObjectURL: vi.fn(() => 'blob:mock'),
+        revokeObjectURL: vi.fn(),
+      });
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it('exports the grouping currently on screen', async () => {
+      api.campaignAnalytics.mockResolvedValue(report());
+      fetchAnalyticsExport.mockResolvedValue({
+        blob: new Blob(['group,total\n'], { type: 'text/csv' }),
+        filename: 'campaign-c1-cohort.csv',
+      });
+
+      render(<CampaignAnalytics campaignId="c1" />);
+      await waitFor(() => expect(screen.getByTestId('overall-rates')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('export-csv'));
+
+      await waitFor(() => expect(fetchAnalyticsExport).toHaveBeenCalledWith('c1', 'cohort'));
+      expect(URL.revokeObjectURL).toHaveBeenCalled();
+    });
+
+    it('reports a failed export instead of failing silently', async () => {
+      api.campaignAnalytics.mockResolvedValue(report());
+      fetchAnalyticsExport.mockRejectedValue(new Error('export_failed_401'));
+
+      render(<CampaignAnalytics campaignId="c1" />);
+      await waitFor(() => expect(screen.getByTestId('overall-rates')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('export-csv'));
+
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent(/could not export the csv/i)
+      );
+    });
   });
 });

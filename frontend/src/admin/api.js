@@ -120,10 +120,29 @@ export const api = {
     request('/participants/lookup', { method: 'POST', body: { identifier } }),
 };
 
-// The URL of the anonymized CSV export (a plain GET the browser can download).
-// Aggregate-only, small groups suppressed — no per-individual data. The bearer
-// token is a header credential, so a raw <a href> download can't carry it; the
-// UI fetches with auth and saves the blob instead (see CampaignAnalytics).
+// The URL of the anonymized CSV export. Aggregate-only, small groups suppressed
+// — no per-individual data.
 export function analyticsExportPath(id, groupBy = 'cohort') {
   return `/api/analytics/campaigns/${id}/export?group_by=${encodeURIComponent(groupBy)}&format=csv`;
+}
+
+// Fetch that CSV as a blob. This cannot be a plain `<a href download>`: the
+// bearer token is a HEADER credential, and a link carries no headers — the
+// download would arrive as a 401. So the export goes through `fetch` with auth
+// and the caller saves the blob (see CampaignAnalytics).
+//
+// The filename mirrors the server's own Content-Disposition rather than parsing
+// it, which keeps this free of header-parsing for a value that is derived from
+// two arguments we already hold.
+export async function fetchAnalyticsExport(id, groupBy = 'cohort') {
+  const token = getToken();
+  const res = await fetch(analyticsExportPath(id, groupBy), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const err = new Error(`export_failed_${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return { blob: await res.blob(), filename: `campaign-${id}-${groupBy}.csv` };
 }

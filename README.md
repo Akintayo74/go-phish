@@ -16,11 +16,15 @@ a simulation into targeted training.
 ```
 backend/     Express + PostgreSQL API (Knex migrations, Jest/Supertest tests)
 frontend/    React (Vite) — admin console + public CAT learning site
-docs/        Design notes and phase records
+docs/        Design notes, phase records, and the route map
 IMPLEMENTATION_PLAN.md   The 12-phase build plan (start here)
 ```
 
 This is an npm workspaces monorepo.
+
+**New to the codebase?** [`docs/ROUTES.md`](./docs/ROUTES.md) maps every route to
+how a human reaches it — including the three participant-facing surfaces that are
+deliberately unreachable by clicking, why they are, and how to demo them anyway.
 
 ## Prerequisites
 
@@ -326,7 +330,10 @@ clicked+submitted) and training-completion rollup — **grouped by cohort or
 department** (`?group_by=cohort|department`); `GET /api/analytics/compare?campaign_ids=a,b`
 is the **phase-over-phase** side-by-side (per-campaign rates + deltas against the
 baseline); and `GET /api/analytics/campaigns/:id/export` streams an **anonymized**
-CSV (or `?format=json`) of the per-group breakdown. Every number is an aggregate:
+CSV (or `?format=json`) of the per-group breakdown — the **Export CSV** control
+in the analytics panel. That control fetches with the bearer token and saves the
+blob rather than being a plain `<a href download>`, because a link carries no
+headers and the download would arrive as a 401. Every number is an aggregate:
 `backend/src/services/analytics.js` fetches only the group dimension + behavioral
 flags (never a participant id/hash — see `backend/src/repositories/analytics.js`)
 and applies **small-group suppression** (k-anonymity, `ANALYTICS_MIN_GROUP_SIZE`,
@@ -336,7 +343,8 @@ participants hidden" summary, and a whole campaign below the threshold has its
 totals suppressed too. The named test
 `backend/tests/analytics.guardrail.test.js` pins that no identifier reaches the
 output and that small groups are suppressed; do not weaken it. The dashboard
-renders per campaign in the admin console (`#/admin`).
+renders per campaign in the admin console (`#/admin`), and the export carries no
+more than the panel above it.
 
 Phase II / re-test support (Phase 10) closes the research loop. A Program Admin
 can **clone** a campaign as a new phase (`POST /api/campaigns/:id/clone`): the

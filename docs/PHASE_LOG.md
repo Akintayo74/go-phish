@@ -922,3 +922,59 @@ full plan.
   system; it is scoped to behavioral flags only. If a future change moves any
   legal-safety decision near it, that decision must fail **closed** as the others
   do (`consent.js`, the schema invariant, analytics suppression).
+
+---
+
+## Handoff — navigation & reachability audit ✅
+
+A pre-handoff pass over one question: which routes can a human actually click to,
+and which exist only if you know the URL? The audit found the answer was nowhere
+written down, and that three things were unreachable by accident rather than by
+design.
+
+**Documented**
+- `docs/ROUTES.md` (new) — the reachability map. Every client and server route
+  with how it is reached; the reasoning for the three participant surfaces that
+  are deliberately unlinked (`/t/<token>`, `/sim/<token>`, `#/enroll/<token>`);
+  how to demo them; the API endpoints that have no UI; and the gaps left open.
+  Linked from the README's repository layout.
+- The `/sim/demo` shortcut is now written down. `GET /sim/:token` never looks the
+  token up, so any string renders the decoy and disclosure with nothing recorded
+  — the whole Phase 4 surface with no mail catcher. It was true since Phase 4 and
+  appeared in no document.
+- README's analytics paragraph no longer implies the CSV export is in the console
+  merely by listing it beside two endpoints that were.
+
+**Fixed**
+- **`/api/health` was a 404.** The landing page's "Service status" line calls
+  `/api/health`; only `/health` was mounted, and the Vite dev proxy forwards
+  `/api` without rewriting. The indicator therefore read **"unknown" in every
+  deployment**, including a perfectly healthy one. The health router is now
+  mounted at both paths — `/health` stays exactly as it is for `render.yaml`'s
+  `healthCheckPath`. *Tests:* `health` (two new cases).
+- **The CSV export had no control.** `analyticsExportPath()` shipped in Phase 9
+  with a comment claiming `CampaignAnalytics` used it; it did not. The one
+  artefact a Researcher needs was reachable only by hand-crafting an
+  authenticated request. Added `fetchAnalyticsExport()` and an **Export CSV**
+  button that exports the grouping currently on screen. It fetches with the
+  bearer token and saves the blob — a header credential cannot ride on an
+  `<a href download>`. *Tests:* `CampaignAnalytics` (two new cases).
+- **Dead ends.** Neither the learning site nor the console linked home, so a
+  participant who followed "Start the lessons" could only leave with the
+  browser's back button. The wordmark is now a link to `#/` in both. The
+  console's does not sign out — the token stays, so `#/admin` returns.
+- **A drifting count.** The landing claimed "Five short lessons" while six are
+  published and the library computes its own count from the API. The landing no
+  longer asserts a number.
+
+**Verified**
+- `npm test` → **465 tests pass** (308 backend, 157 frontend). No existing test
+  changed behaviour; the four new cases are additive.
+
+**Notes**
+- The unlinked participant routes are a guardrail, not a backlog item. The
+  reasoning is in `docs/ROUTES.md` §2 and should be read before anyone "fixes"
+  the missing navigation.
+- Still open, and recorded rather than fixed: the landing's "Participation
+  notice" button promises a data-handling page and links to the lesson library,
+  which has no such module. Write the module or retarget the link.

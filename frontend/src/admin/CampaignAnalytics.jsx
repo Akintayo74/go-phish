@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { api } from './api.js';
+import { api, fetchAnalyticsExport } from './api.js';
 import { color } from '../ui/theme.js';
+import { Button } from '../ui/primitives.jsx';
 
 // Campaign analytics panel (Phase 9). Renders the AGGREGATE-ONLY report for one
 // campaign: overall click/submission/open rates, the four-tier susceptibility
@@ -124,6 +125,8 @@ export default function CampaignAnalytics({ campaignId }) {
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,21 +145,66 @@ export default function CampaignAnalytics({ campaignId }) {
     load();
   }, [load]);
 
+  // Save the anonymized CSV. The blob is fetched with the bearer token (a link
+  // cannot carry a header credential) and handed to a synthetic anchor, which is
+  // the only way a browser will write a fetched body to disk. The object URL is
+  // revoked immediately after the click so the blob is not retained.
+  //
+  // What is downloaded is the same aggregate the panel already shows — group
+  // rows with small groups suppressed server-side (guardrail #5). There is no
+  // per-individual export to offer, and none should be added here.
+  async function downloadCsv() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { blob, filename } = await fetchAnalyticsExport(campaignId, groupBy);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (_e) {
+      setExportError('Could not export the CSV.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section aria-label="campaign analytics" data-testid="campaign-analytics" className="cs-panel">
-      <div className="cs-seg" role="group" aria-label="group by">
-        {GROUP_BYS.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={groupBy === value}
-            disabled={groupBy === value}
-            onClick={() => setGroupBy(value)}
-          >
-            By {label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div className="cs-seg" role="group" aria-label="group by">
+          {GROUP_BYS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={groupBy === value}
+              disabled={groupBy === value}
+              onClick={() => setGroupBy(value)}
+            >
+              By {label}
+            </button>
+          ))}
+        </div>
+        {/* Open to any authenticated operator, like the report itself —
+            analysis is the Researcher's job, and the export carries no more
+            than the panel above it. */}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={downloadCsv}
+          disabled={exporting || loading || Boolean(error)}
+          data-testid="export-csv"
+        >
+          {exporting ? 'Exporting…' : 'Export CSV'}
+        </Button>
       </div>
+      {exportError && (
+        <p role="alert" style={{ color: color.danger, margin: 0 }}>{exportError}</p>
+      )}
 
       {loading && <p style={{ color: color.textMuted, margin: 0 }}>Loading analytics…</p>}
       {error && <p role="alert" style={{ color: color.danger, margin: 0 }}>{error}</p>}
