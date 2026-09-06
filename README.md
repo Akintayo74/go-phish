@@ -124,6 +124,65 @@ The backend suite includes a **named guardrail test**
 strings — where a simulated credential would appear — never reach any log
 sink. Do not weaken or remove it.
 
+## Deployment
+
+CAT-Sim deploys as a **single origin**: one Node process serves the API *and*
+the built React app. This is not a packaging preference — the client calls the
+API with relative paths (`fetch('/api/...')`) and `backend/src/app.js` registers
+no CORS middleware, so a split frontend/backend deployment fails in the browser
+on every request.
+
+Single origin also collapses the two participant-facing base URLs into one.
+Tracked links (`/t`, `/sim`) and training links (`#/learn`, `#/enroll`) share a
+host, so `APP_BASE_URL` and `SIM_TRAINING_URL` need no override.
+
+```bash
+npm ci && npm run build     # builds frontend/dist
+npm run migrate:latest      # schema
+npm run seed:run            # demo content + operators (see below)
+npm start                   # serves API + SPA on $PORT
+```
+
+`backend/src/app.js` mounts `frontend/dist` when it exists and falls back to
+`index.html` for app routes, while leaving `/api`, `/t`, `/sim` and `/health` to
+their real handlers — including their 404s, so an unknown API path still answers
+as JSON rather than as the SPA document. Pinned by
+`backend/tests/static.spa.test.js`. In development the directory is absent, Vite
+serves the app on :5173 and proxies `/api` back, and none of this mounts.
+
+### Render
+
+[`render.yaml`](./render.yaml) is a Blueprint for one web service + one
+Postgres. Dashboard → New → Blueprint → point at this repo, then run
+`npm run seed:run` once from the service shell.
+
+It leaves `PUBLIC_BASE_URL` unset on purpose: config falls back to Render's own
+`RENDER_EXTERNAL_URL`, so tracked links resolve to the real host without a
+manual step. Getting that value wrong is the most damaging misconfiguration
+available here — it is the origin a participant's mail client resolves, so a
+deployment that forgets it mails out links pointing at `localhost`.
+
+Two free-tier caveats: a free web service spins down after ~15 minutes idle (the
+first tracked-link click after a quiet spell waits out a cold start), and a free
+Postgres instance is **deleted 30 days after creation**.
+
+### Before pointing it at anyone
+
+Walk [`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md) — it is a
+launch gate, not a description of aspirations. Two deployment-specific notes:
+
+- **Secrets.** `IDENTITY_HASH_SECRET` and `JWT_SECRET` default to published dev
+  placeholders. `render.yaml` generates both. The seed refuses to run under
+  `NODE_ENV=production` without `SEED_ADMIN_PASSWORD` rather than installing the
+  dev password that is committed to this repository.
+- **A public decoy page attracts scanners.** Every host's acceptable-use policy
+  prohibits phishing content, and automated reputation services do not read the
+  guardrails before flagging a URL. What keeps this legitimate is already in
+  place — `SIM_BRAND_NAME` is a fictional placeholder, the decoy sends
+  `noindex, nofollow`, the form handler discards `req.body`, and disclosure is
+  immediate. Never set `SIM_BRAND_NAME` or `MAIL_FROM` to a real organization,
+  not even for a demo.
+
 ## Build status
 
 **Phases 0–11 complete** — the full MVP (scaffolding; data model & schema;
