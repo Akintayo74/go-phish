@@ -3,6 +3,8 @@
 // Knex configuration. Migrations and seeds live under backend/migrations and
 // backend/seeds; Phase 1 populates them with the CAT-Sim schema.
 
+const path = require('path');
+
 require('dotenv').config();
 
 const connection =
@@ -14,12 +16,15 @@ const base = {
   client: 'pg',
   connection,
   pool: { min: 0, max: 10 },
+  // Absolute so the config works whichever directory knex is invoked from —
+  // the workspace scripts run with cwd=backend, but scripts/bootstrap.js is
+  // reached through the repo root at deploy time.
   migrations: {
-    directory: './migrations',
+    directory: path.resolve(__dirname, 'migrations'),
     tableName: 'knex_migrations',
   },
   seeds: {
-    directory: './seeds',
+    directory: path.resolve(__dirname, 'seeds'),
   },
 };
 
