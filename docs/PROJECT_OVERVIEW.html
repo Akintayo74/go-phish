@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAT-Sim — Project Overview</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2430;
+    --muted: #5b6472;
+    --accent: #2563eb;
+    --accent-soft: #eff4ff;
+    --border: #e2e6ee;
+    --code-bg: #f4f6fa;
+    --table-head: #f7f9fc;
+    --table-stripe: #fbfcfe;
+    --warn-bg: #fff8ec;
+    --warn-border: #f0c37a;
+    --ok: #17803d;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171d;
+      --fg: #e6e9ef;
+      --muted: #9aa4b2;
+      --accent: #6ea0ff;
+      --accent-soft: #1c2637;
+      --border: #2a2f3a;
+      --code-bg: #1b1f27;
+      --table-head: #1a1e26;
+      --table-stripe: #171b22;
+      --warn-bg: #2a2412;
+      --warn-border: #6b551f;
+      --ok: #5fce87;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.62;
+    font-size: 16px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+  header.doc {
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 1.4rem;
+    margin-bottom: 2rem;
+  }
+  header.doc h1 { font-size: 2.2rem; margin: 0 0 .3rem; letter-spacing: -.02em; }
+  header.doc .sub { color: var(--muted); font-style: italic; margin: 0 0 1rem; }
+  .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .badge {
+    font-size: .8rem; font-weight: 600; padding: .25rem .7rem; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--border);
+  }
+  .badge.done { color: var(--ok); }
+  h2 {
+    font-size: 1.5rem; margin: 2.6rem 0 .8rem; padding-top: .4rem;
+    letter-spacing: -.01em; border-top: 1px solid var(--border); padding-top: 1.8rem;
+  }
+  h3 { font-size: 1.15rem; margin: 1.8rem 0 .6rem; }
+  p { margin: .7rem 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: .88em;
+    background: var(--code-bg); padding: .12em .4em; border-radius: 5px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: .85rem; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  ul, ol { padding-left: 1.4rem; }
+  li { margin: .3rem 0; }
+  table {
+    border-collapse: collapse; width: 100%; margin: 1.1rem 0; font-size: .9rem;
+    display: block; overflow-x: auto;
+  }
+  th, td { border: 1px solid var(--border); padding: .55rem .7rem; text-align: left; vertical-align: top; }
+  th { background: var(--table-head); font-weight: 650; }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  .center { text-align: center; }
+  blockquote {
+    margin: 1.2rem 0; padding: .8rem 1.1rem; border-left: 4px solid var(--accent);
+    background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--fg);
+  }
+  blockquote p { margin: .3rem 0; }
+  .callout {
+    margin: 1.2rem 0; padding: .9rem 1.1rem; border: 1px solid var(--warn-border);
+    background: var(--warn-bg); border-radius: 8px;
+  }
+  nav.toc {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.3rem; margin: 1.5rem 0 2rem;
+  }
+  nav.toc strong { display: block; margin-bottom: .5rem; font-size: .95rem; }
+  nav.toc ol { margin: 0; columns: 2; column-gap: 2rem; }
+  nav.toc a { font-size: .9rem; }
+  footer.doc { margin-top: 3rem; padding-top: 1.4rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .85rem; font-style: italic; }
+  .tick { color: var(--ok); font-weight: 700; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } .wrap { padding: 2rem 1rem 4rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>CAT-Sim — Comprehensive Project Overview</h1>
+  <p class="sub">A single-document tour of what this project is, what the development spec required, what has been built, how it works, and how to run and test the whole system end to end.</p>
+  <div class="badges">
+    <span class="badge">Repo: akintayo74/go-phish</span>
+    <span class="badge">Project: CAT-Sim</span>
+    <span class="badge done">Phases 0–11 complete · full MVP</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#s1">What this project is</a></li>
+    <li><a href="#s2">The development spec</a></li>
+    <li><a href="#s3">Non-negotiable guardrails</a></li>
+    <li><a href="#s4">What is done — the 12 phases</a></li>
+    <li><a href="#s5">How it functions</a></li>
+    <li><a href="#s6">Using &amp; testing the project</a></li>
+    <li><a href="#s7">Quick reference</a></li>
+  </ol>
+</nav>
+
+<h2 id="s1">1. What this project is</h2>
+<p><strong>CAT-Sim</strong> is a two-part, consent-based security platform aimed at the Nigerian financial sector:</p>
+<ol>
+  <li><strong>A consent-based phishing simulation.</strong> An organization runs a controlled, fake phishing campaign against <em>its own consented staff</em> to measure susceptibility to social engineering — who opens a lure email, who clicks the link, who submits credentials on a fake login page.</li>
+  <li><strong>A public Cybersecurity Awareness Training (CAT) platform.</strong> A free, public learning site (lessons + knowledge-check quizzes) that anyone can read. It is <em>not</em> gated behind failing a simulation.</li>
+</ol>
+<p>The two halves are joined by an <strong>automatic enrollment loop</strong>: any staff member who falls for the simulation (clicks or submits) is automatically enrolled into targeted training. This closes the loop from <strong>measured vulnerability → targeted education</strong>, and a later "Phase II" re-test measures whether the training worked (a falling submission rate is the loop succeeding).</p>
+<p>Because the system deliberately simulates a real attack technique, it is built around a set of <strong>non-negotiable ethical and legal guardrails</strong> (see §3). It must only ever run against an organization's own consented staff, it must <strong>never</strong> capture or store a real credential, and every simulated interaction must end in a disclosure page.</p>
+<h3>Where it targets</h3>
+<p>The training content is tailored to <strong>Nigerian-context tactics</strong> (SIM swap, smishing, vishing, impersonation) and the data-handling design is <strong>NDPC-aligned</strong> (Nigeria Data Protection Commission) — data minimization is a first-class requirement, not an afterthought.</p>
+
+<h2 id="s2">2. The development spec it was built from</h2>
+<p>The build was driven by two source documents, distilled into <code>IMPLEMENTATION_PLAN.md</code>:</p>
+<ul>
+  <li><strong>CAT_Sim_PRD_1</strong> — the product requirements document (features + the ethical/legal section that became the guardrails).</li>
+  <li><strong>CAT_Sim_MVP_Dev_Guide</strong> — the developer build guide (tech stack, schema, build order, pre-launch checklist).</li>
+</ul>
+<p>The implementation plan reorganized these into <strong>12 self-contained phases (Phase 0 – Phase 11)</strong>, each scoped to a single focused work session. Phases carrying subtle correctness/ethics invariants (schema safety, the sensitive dummy form, aggregate-only analytics, the final security audit) were assigned the stronger model; well-specified CRUD/UI/integration work used the faster model.</p>
+
+<h3>2.1 Required tech stack (from the Dev Guide)</h3>
+<table>
+  <thead><tr><th>Layer</th><th>Choice as specified</th><th>As built</th></tr></thead>
+  <tbody>
+    <tr><td>Backend</td><td>Node.js + Express (REST)</td><td>Express app, <code>backend/</code></td></tr>
+    <tr><td>Database</td><td>PostgreSQL</td><td>Postgres + Knex migrations</td></tr>
+    <tr><td>Frontend</td><td>React (admin console + public CAT site)</td><td>React + Vite, <code>frontend/</code></td></tr>
+    <tr><td>Email</td><td>Transactional API (SendGrid / Mailgun / SES)</td><td>Pluggable mailer (<code>console</code>, <code>smtp</code>; provider seam ready)</td></tr>
+    <tr><td>Auth</td><td>JWT (admin/researcher only; CAT site public)</td><td>JWT bearer sessions, two roles</td></tr>
+    <tr><td>Hosting</td><td>Single small cloud instance (Render/Heroku-class)</td><td>Single-origin Node process; <code>render.yaml</code> Blueprint</td></tr>
+    <tr><td>Tests</td><td>Jest + Supertest; Vitest + Testing Library; Playwright</td><td>All three, plus named guardrail tests</td></tr>
+  </tbody>
+</table>
+<p><strong>Repo shape:</strong> an npm-workspaces monorepo — <code>backend/</code>, <code>frontend/</code>, <code>docs/</code>, plus a deliberately-separate <code>e2e/</code> (kept out of the root workspaces so <code>npm test</code> stays DB/browser-free).</p>
+
+<h3>2.2 Explicitly deferred past the MVP</h3>
+<p>The plan explicitly parks these out of scope: SMS/smishing <em>delivery</em>, a browser extension, org-wide scale, a CMS for authoring content, and in-app perception surveys.</p>
+
+<h2 id="s3">3. The non-negotiable guardrails</h2>
+<p>These come straight from the PRD's ethical/legal section. They apply to every phase, and each has an <strong>explicit, named automated test</strong> that pins it — the tests are marked "do not weaken." This is the spine of the whole project.</p>
+<table>
+  <thead><tr><th>#</th><th>Guardrail</th><th>What it means</th><th>Pinned by (named test)</th></tr></thead>
+  <tbody>
+    <tr><td class="center">1</td><td><strong>No real credentials, ever</strong></td><td>The <code>interactions</code> table has <strong>no column</strong> able to hold a submitted username/password. The dummy form handler discards posted values and keeps only <code>submitted = true</code>. Enforced at the <em>schema</em> level so a future dev can't accidentally add credential capture.</td><td><code>schema.interactions.guardrail</code>, <code>schema.db</code>, <code>sim.form.guardrail</code>, <code>system.credential.audit</code></td></tr>
+    <tr><td class="center">2</td><td><strong>POST bodies excluded from logs</strong></td><td>No credential-shaped data in access logs, error traces, query strings, or headers — globally, defensively.</td><td><code>logging</code>, <code>system.credential.audit</code></td></tr>
+    <tr><td class="center">3</td><td><strong>Consent-gated delivery</strong></td><td>No campaign can send to a participant unless their cohort's consent is <code>granted</code> <strong>and</strong> they have not opted out. All targeting routes through a single <code>isDeliverable</code> predicate; fail-closed.</td><td><code>consent.guardrail</code>, <code>delivery.guardrail</code>, <code>enrollment.guardrail</code>, <code>consent.authz.guardrail</code></td></tr>
+    <tr><td class="center">4</td><td><strong>Transparency / disclosure</strong></td><td>Every simulated interaction ends at a disclosure page — shown even for an unknown token and even when the campaign is paused.</td><td><code>sim.routes</code>, <code>sim.form.guardrail</code>, <code>pause.rollback.guardrail</code></td></tr>
+    <tr><td class="center">5</td><td><strong>Aggregate-only reporting</strong></td><td>Management/researcher views group by cohort/department and <strong>never</strong> expose a per-individual result. Small-group k-anonymity suppression. Send/notify receipts are counts only.</td><td><code>analytics.guardrail</code>, <code>delivery.guardrail</code>, <code>enrollment.guardrail</code>, <code>system.loop.integration</code></td></tr>
+    <tr><td class="center">6</td><td><strong>Data minimization (NDPC-aligned)</strong></td><td>Store only role/department/cohort + click/submit/timestamp flags. Only a keyed <strong>hash</strong> of a contact is stored; raw addresses are supplied transiently and never persisted. No punitive framing; sandboxed infra.</td><td><code>delivery.guardrail</code>, <code>enrollment.guardrail</code>, <code>system.credential.audit</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="s4">4. What is done — the 12 phases</h2>
+<p>All phases <strong>0 through 11 are complete</strong>; the full MVP is built and tested.</p>
+<table>
+  <thead><tr><th>#</th><th>Phase</th><th class="center">Status</th><th>What it delivered</th></tr></thead>
+  <tbody>
+    <tr><td class="center">0</td><td>Scaffolding &amp; foundations</td><td class="center tick">✅</td><td>Monorepo, Express skeleton + <code>/health</code>, Postgres + Knex, central config, <code>.env.example</code>, <strong>global request logger that excludes POST bodies</strong> (guardrail #2), test harness wired.</td></tr>
+    <tr><td class="center">1</td><td>Data model &amp; schema</td><td class="center tick">✅</td><td>Migrations for all core tables. <strong>Schema-level credential-safety invariant</strong> on <code>interactions</code>. Hashed participant contact. Repository/query layer + seed data.</td></tr>
+    <tr><td class="center">2</td><td>Consent &amp; participant management</td><td class="center tick">✅</td><td>Cohort + participant CRUD; cohort-level consent status + individual opt-out; the single <code>isDeliverable</code> consent gate all delivery routes through.</td></tr>
+    <tr><td class="center">3</td><td>Admin auth + campaign CRUD skeleton</td><td class="center tick">✅</td><td>JWT login; two roles; campaign CRUD + lifecycle transitions — <strong>no email sent yet</strong>; scrypt password verifiers never returned; admin UI shell.</td></tr>
+    <tr><td class="center">4</td><td>Simulated landing page + dummy form + disclosure</td><td class="center tick">✅</td><td><code>GET /sim/:token</code> renders a <strong>generic, fictional</strong> login page; <code>POST</code> <strong>discards every posted value</strong>, records <code>submitted = true</code>, redirects to disclosure. <strong>No client JavaScript</strong>.</td></tr>
+    <tr><td class="center">5</td><td>Interaction tracking + campaign delivery</td><td class="center tick">✅</td><td>Opaque per-participant token; <code>/t/:token</code> flips <code>clicked</code>→<code>opened</code> and redirects to the decoy; open pixel; <code>POST /api/campaigns/:id/send</code> (active campaign only) hashes a <strong>transient</strong> roster, gates through consent, returns an <strong>aggregate summary only</strong>. Pluggable mailer + throttle.</td></tr>
+    <tr><td class="center">6</td><td>CAT platform — lessons + resource library</td><td class="center tick">✅</td><td>Public, unauthenticated learning site; <code>/api/learn</code>; only <code>published = true</code> modules exposed (a draft is an indistinguishable 404); reads record nothing. Script-safe Markdown renderer.</td></tr>
+    <tr><td class="center">7</td><td>CAT platform — quiz engine</td><td class="center tick">✅</td><td>Per-module knowledge checks; quiz served <strong>without the answer key</strong>; attempts scored <strong>server-side</strong> (aggregate pass/fail vs <code>pass_threshold</code>); stateless.</td></tr>
+    <tr><td class="center">8</td><td>Automatic enrollment loop</td><td class="center tick">✅</td><td>On the campaign's <code>enrollment_trigger</code>, auto-creates an idempotent <code>training_assignment</code> to the configured published module. Best-effort side effect. Tokened <code>/api/enroll</code> routes let a participant complete training without login; notify email is consent-gated with an aggregate receipt.</td></tr>
+    <tr><td class="center">9</td><td>Analytics dashboard</td><td class="center tick">✅</td><td>Aggregate-only <code>/api/analytics</code> (open to researchers): <strong>four-tier breakdown</strong> grouped by cohort/department, phase-over-phase compare, anonymized CSV/JSON export. <strong>k-anonymity suppression</strong> (default 5). Never fetches an id/hash.</td></tr>
+    <tr><td class="center">10</td><td>Phase II / re-test support</td><td class="center tick">✅</td><td><code>POST /api/campaigns/:id/clone</code> copies only the <strong>definition</strong>, born <code>draft</code>, linked via <code>cloned_from_campaign_id</code>; <code>/phases</code> returns the re-test family; "Compare phases" shows the percentage-point change against the baseline.</td></tr>
+    <tr><td class="center">11</td><td>E2E, security &amp; log audit, pre-launch hardening</td><td class="center tick">✅</td><td>Campaign <strong>pause/rollback</strong> (paused → no new flags/enrollment, decoy + disclosure still render); whole-system credential-leak audit; DB-free full-loop integration test; 1,000-recipient email <strong>load test</strong>; Playwright browser E2E; the walked <strong>pre-launch checklist</strong>.</td></tr>
+  </tbody>
+</table>
+<p>Full narrative history is in <code>docs/PHASE_LOG.md</code>; the launch gate is <code>docs/PRE_LAUNCH_CHECKLIST.md</code>.</p>
+
+<h2 id="s5">5. How it functions</h2>
+
+<h3>5.1 Architecture at a glance</h3>
+<pre><code>                         ┌──────────────────────────────────────────┐
+   Participant's mailbox  │  Lure email  →  /t/&lt;token&gt;  (tracking)     │
+   (real email, tracked)  │  Enrollment email → #/enroll/&lt;token&gt;       │
+                          └──────────────────────────────────────────┘
+                                        │ click
+                                        ▼
+   ┌───────────────────── Express (single origin) ──────────────────────┐
+   │  /health        liveness + DB check                                  │
+   │  /t/&lt;token&gt;     record click → redirect to decoy   (public, tokened)  │
+   │  /sim/&lt;token&gt;   decoy sign-in → POST discards → /disclosure  (public)  │
+   │  /api/auth      JWT login                                            │
+   │  /api/cohorts   consent unit + transitions     (Program Admin writes)│
+   │  /api/participants  roster + opt-out           (Program Admin writes)│
+   │  /api/campaigns CRUD + lifecycle + send + notify + clone + phases    │
+   │  /api/learn     public lessons + quiz (no answer key to client)      │
+   │  /api/enroll/&lt;token&gt;  tokened, login-free training completion         │
+   │  /api/analytics aggregate-only reporting + export                    │
+   │  (static)       serves frontend/dist + SPA fallback in production    │
+   └─────────────────────────────┬──────────────────────────────────────┘
+                                 │
+                        PostgreSQL (Knex)
+     cohorts · participants · campaigns · interactions
+     learning_modules · quizzes · training_assignments · admin_users
+
+   ┌──────────────────── React SPA (hash routes) ───────────────────────┐
+   │  #/            public landing                                        │
+   │  #/learn       resource library   #/learn/&lt;slug&gt;  lesson + quiz       │
+   │  #/admin       admin console (campaigns, consent, analytics, …)       │
+   │  #/enroll/&lt;token&gt;  assigned training (email link only)                │
+   └──────────────────────────────────────────────────────────────────────┘</code></pre>
+<div class="callout"><strong>Single origin is a hard requirement, not a preference.</strong> The React client calls the API with relative paths (<code>fetch('/api/...')</code>) and the Express app registers <strong>no CORS middleware</strong>, so a split frontend/backend deployment fails in the browser on every request. In production one Node process serves both the API and the built SPA; in development Vite serves the app on <code>:5173</code> and proxies <code>/api</code> back to the backend on <code>:4000</code>.</div>
+
+<h3>5.2 The data model</h3>
+<p>Eight tables, all UUID-keyed:</p>
+<ul>
+  <li><strong><code>cohorts</code></strong> — the <em>unit of consent</em>. <code>consent_status</code> is <code>pending</code> / <code>granted</code> / <code>withdrawn</code> (defaults to <code>pending</code>, so a fresh cohort is never treated as consented by omission).</li>
+  <li><strong><code>participants</code></strong> — org staff. Stores <code>cohort_id</code>, a keyed <code>email_or_phone_hash</code> (<strong>never</strong> raw email/phone), <code>role</code>, <code>department</code>, and an individual <code>opted_out</code> flag.</li>
+  <li><strong><code>campaigns</code></strong> — one simulation run. <code>status</code> lifecycle (<code>draft → active → paused → completed → archived</code>), <code>phase_label</code>, <code>enrollment_trigger</code> (<code>clicked</code> or <code>submitted</code>), <code>cloned_from_campaign_id</code> lineage.</li>
+  <li><strong><code>interactions</code></strong> — behavioral flags + timestamps <strong>only</strong>: <code>opened</code>, <code>clicked</code>, <code>submitted</code>, <code>disclosed</code> plus the opaque <code>tracking_token</code>. <strong>No column can hold a submitted value</strong> — guardrail #1, enforced in the migration with a schema comment and a named test on the exact column set. One row per (campaign, participant).</li>
+  <li><strong><code>learning_modules</code></strong> — CAT lesson content (Markdown body, <code>published</code> flag, <code>category</code>, <code>slug</code>).</li>
+  <li><strong><code>quizzes</code></strong> — per-module knowledge checks with a private answer key and a <code>pass_threshold</code>.</li>
+  <li><strong><code>training_assignments</code></strong> — the enrollment loop's record: participant, module, <code>assigned_reason</code>, status (<code>assigned → in_progress → completed</code>), an opaque <code>completion_token</code>, and a <code>notified_at</code> stamp. Holds no credential-shaped field.</li>
+  <li><strong><code>admin_users</code></strong> — operators, with a salted <strong>scrypt</strong> password verifier (never returned in any response) and one of two roles.</li>
+</ul>
+
+<h3>5.3 Roles</h3>
+<ul>
+  <li><strong><code>program_admin</code></strong> — manages campaigns, cohorts, participants, operators; can send, notify, clone, and move consent.</li>
+  <li><strong><code>researcher</code></strong> — read/evaluate only. Can see analytics (analysis is their job) but cannot write. Enforced <strong>server-side</strong> on the routes, not merely by hiding UI controls.</li>
+</ul>
+
+<h3>5.4 Two things that are deliberately <em>not</em> linkable</h3>
+<p>Three surfaces — <code>/t/&lt;token&gt;</code>, <code>/sim/&lt;token&gt;</code>, and <code>#/enroll/&lt;token&gt;</code> — have <strong>no link pointing at them from anywhere</strong>. That is a guardrail, not an omission:</p>
+<ul>
+  <li>The measurement depends on an <em>unprompted</em> arrival — a participant should meet the decoy because they believed a lure, not because they browsed to it.</li>
+  <li>A per-participant token is not something a page can link to; an entry point would have to be a "paste your token" box, which is a guessing oracle against someone else's record.</li>
+  <li>Linking a participant's tracked link from the console would build a person→behaviour map — exactly what the aggregate-only design (guardrail #5) exists to prevent.</li>
+</ul>
+
+<h3>5.5 Two origins for participant links</h3>
+<table>
+  <thead><tr><th>Link</th><th>Served by</th><th>Built from</th></tr></thead>
+  <tbody>
+    <tr><td><code>/t/&lt;token&gt;</code>, <code>/sim/&lt;token&gt;</code></td><td>this API</td><td><code>PUBLIC_BASE_URL</code></td></tr>
+    <tr><td><code>#/enroll/&lt;token&gt;</code>, <code>#/learn</code></td><td>the React app</td><td><code>APP_BASE_URL</code></td></tr>
+  </tbody>
+</table>
+<p><code>APP_BASE_URL</code> defaults to <code>PUBLIC_BASE_URL</code>, so a single-origin deployment needs no extra config. Getting <code>PUBLIC_BASE_URL</code> wrong is the most damaging misconfiguration available — it is the origin a participant's mail client resolves, so a deployment that forgets it mails links pointing at <code>localhost</code>.</p>
+
+<h3>5.6 Email</h3>
+<p>A pluggable mailer (<code>MAIL_PROVIDER</code>):</p>
+<ul>
+  <li><strong><code>console</code></strong> (default, hermetic) — records send <em>metadata only</em> and <strong>dispatches nothing over the network</strong>. Used in dev, tests, and CI. Under <code>NODE_ENV=test</code> the console transport is <strong>forced</strong> regardless of config, so a test run can never reach the network.</li>
+  <li><strong><code>smtp</code></strong> — point at a local catcher (Mailpit) to <em>see</em> real mail locally, or a transactional relay (SendGrid / Mailgun / SES / Postmark) in production. Configured with <code>SMTP_HOST</code> / <code>SMTP_PORT</code> / <code>SMTP_SECURE</code> / <code>SMTP_USER</code> / <code>SMTP_PASS</code>. Fails <strong>closed</strong> — with <code>MAIL_PROVIDER=smtp</code> but no <code>SMTP_HOST</code> it throws at startup rather than silently not sending. <code>SMTP_PASS</code> is never logged, and an SMTP error is re-thrown with its error <em>code</em> only (provider messages echo the recipient address, which must not reach a log — guardrail #6).</li>
+</ul>
+<div class="callout"><strong>The console provider is not an email service — it sends nothing.</strong> A send against it still returns success and still shows a count in the admin receipt, but no mail ever leaves the server. So a "successful" send whose message never arrives is the expected behaviour of the default configuration, not a bug — real delivery requires switching to <code>smtp</code> (see §6.8).</div>
+
+<h2 id="s6">6. Using and testing the full project</h2>
+
+<h3>6.1 Prerequisites</h3>
+<ul>
+  <li>Node.js ≥ 20</li>
+  <li>PostgreSQL (local or containerized) to run the backend against a database</li>
+  <li>(Optional) Docker, for a local mail catcher and/or Postgres</li>
+</ul>
+
+<h3>6.2 First-time local setup</h3>
+<pre><code>npm install                                   # installs backend + frontend workspaces
+
+cp backend/.env.example backend/.env          # then edit DATABASE_URL
+npm run migrate:latest --workspace backend    # create the schema
+npm run seed:run --workspace backend          # demo cohorts, participants, modules, admin</code></pre>
+<p>The seed provisions the demo <strong>Program Admin</strong> (<code>admin@example.test</code> / <code>changeme-dev-password</code>) and six published training modules, including the <code>recognizing-phishing</code> module the enrollment loop assigns.</p>
+
+<h3>6.3 Run it in development (two processes)</h3>
+<pre><code>npm run dev:backend        # http://localhost:4000/health
+npm run dev:frontend       # http://localhost:5173  (proxies /api to :4000)</code></pre>
+<p>Then open <strong>http://localhost:5173</strong>: <code>#/</code> (landing), <code>#/learn</code> (public lessons), <code>#/admin</code> (sign in as the demo admin).</p>
+
+<h3>6.4 The admin console</h3>
+<p>Sign in at <code>#/admin</code>. As a Program Admin you can:</p>
+<ul>
+  <li><strong>Campaigns</strong> — create, run lifecycle transitions, open <strong>Analytics</strong> (with <strong>Export CSV</strong>), <strong>Compare phases</strong>, <strong>Clone as new phase</strong>, and <strong>Send</strong>. (Send/Clone/Compare are Program-Admin only — a Researcher never sees them, mirroring the server-side gate.)</li>
+  <li><strong>Cohorts &amp; consent</strong> — create/edit/delete cohorts, <strong>grant/withdraw consent</strong> (behind a confirmation naming how many people it affects), and manage the participant roster (add, edit, delete, opt in/out, look up by address).</li>
+</ul>
+<p>Two properties the <strong>Send</strong> panel deliberately holds to:</p>
+<ul>
+  <li><strong>The roster is transient</strong> — it lives in component state only, never <code>localStorage</code> or a query string, and is dropped as soon as the send returns. The backend stores only a keyed hash, never the raw address.</li>
+  <li><strong>The receipt is aggregate-only</strong> — counts and withholding reasons ("3 withheld by the consent gate"), never a per-recipient outcome.</li>
+</ul>
+
+<h3>6.5 Walking the full participant loop (the real demo — Mailpit)</h3>
+<p><code>MAIL_PROVIDER=console</code> sends nothing, so tokened links only exist in the database. To walk the genuine loop with <strong>no URL typing at all</strong>, point the mailer at a local catcher:</p>
+<pre><code>docker run -d --name catsim-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit</code></pre>
+<pre><code># backend/.env
+MAIL_PROVIDER=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+APP_BASE_URL=http://localhost:5173</code></pre>
+<p>Then, from the admin console, send a campaign to your own address and read the inbox at <strong>http://localhost:8025</strong>. The loop:</p>
+<pre><code>send (console) → click the mail → decoy → submit → disclosure
+             → auto-enroll → enrollment mail → training → pass the quiz → completed</code></pre>
+<div class="callout"><strong>No-setup shortcut:</strong> <code>GET /sim/:token</code> never looks the token up — it is a pure stateless render — so <code>/sim/demo</code> and <code>/sim/demo/disclosure</code> show the whole Phase 4 decoy/disclosure surface with no email, no DB row, and nothing recorded. Ideal for reviewing the decoy copy in a presentation.</div>
+
+<h3>6.6 Automated tests</h3>
+<pre><code>npm test                          # all workspace suites (DB/browser-free)
+npm test --workspace backend      # Jest + Supertest  (44 test files)
+npm test --workspace frontend     # Vitest + Testing Library  (13 test files)</code></pre>
+<p>The suite is intentionally hermetic — no database and no network required — so it runs anywhere, including CI. It includes the <strong>named guardrail tests</strong> listed in §3; those assert the ethical/legal invariants and are marked "do not weaken."</p>
+
+<h3>6.7 Browser end-to-end (against a live stack)</h3>
+<p>The Playwright E2E under <code>e2e/</code> drives the full loop against a running backend + Postgres. It is deliberately outside the root workspaces so <code>npm test</code> stays DB/browser-free.</p>
+<pre><code># 1) Postgres migrated + seeded
+cd backend
+DATABASE_URL=postgres://catsim:catsim@localhost:5432/catsim_test \
+  npm run migrate:latest && npm run seed:run
+
+# 2) Backend running against that DB
+DATABASE_URL=postgres://catsim:catsim@localhost:5432/catsim_test \
+  PORT=4000 npm start
+
+# 3) From the repo root
+npm run test:e2e</code></pre>
+<p>The harness reads the opaque <strong>tracking token</strong>, <strong>completion token</strong>, and quiz <strong>answer key</strong> straight from the database as an out-of-band <strong>test oracle</strong> — because the product never exposes any of them through an API (that is the whole point of guardrail #5 and the Phase 7 answer-key rule). No token endpoint is added for the test.</p>
+
+<h3>6.8 Deploying (single origin)</h3>
+<pre><code>npm ci --include=dev &amp;&amp; npm run build   # builds frontend/dist (--include=dev is required)
+npm run bootstrap                       # migrate; seed only a fresh database
+npm start                               # serves API + SPA on $PORT</code></pre>
+<p><code>--include=dev</code> is load-bearing: <code>NODE_ENV=production</code> makes npm omit devDependencies, and <code>vite</code> is one, so a plain <code>npm ci</code> builds nothing and the deploy dies on <code>vite: not found</code>.</p>
+<p><strong>Render:</strong> <code>render.yaml</code> is a Blueprint for one web service + one Postgres. Because the free tier offers no pre-deploy step, <code>backend/scripts/bootstrap.js</code> runs from the start command — migrating every boot and seeding only a database that has never been seeded. <code>SEED_ON_BOOT</code> guards this: <code>auto</code> (default) seeds only an unseeded DB, <code>never</code> skips seeding, <code>force</code> reseeds and <strong>discards collected data</strong>. This guard is load-bearing — the seeds are destructive and a free instance restarts on every cold start.</p>
+<div class="callout"><strong>Email delivery is off by default on Render.</strong> The blueprint pins <code>MAIL_PROVIDER=console</code>, so a deployed instance <strong>sends no real mail</strong> — a test send reports success but arrives nowhere. To deliver real email (and walk the genuine send → click → train loop), set <code>MAIL_PROVIDER=smtp</code> on the service and supply <code>SMTP_HOST</code> / <code>SMTP_PORT</code> / <code>SMTP_USER</code> / <code>SMTP_PASS</code> (and <code>SMTP_SECURE</code> for an implicit-TLS port) pointing at a transactional relay. The <code>render.yaml</code> mailer section documents each variable. Also set <code>MAIL_FROM</code> to an address on a domain you control and have authenticated (SPF/DKIM): the default <code>no-reply@catsim.invalid</code> is non-routable, so real relays reject it and receiving servers bounce or junk it — while keeping the brand generic/fictional (guardrail).</div>
+
+<h3>6.9 Before pointing it at anyone</h3>
+<p>Walk <code>docs/PRE_LAUNCH_CHECKLIST.md</code> — it is a launch gate, not a description of aspirations. In particular (operator actions per deployment):</p>
+<ul>
+  <li>Override the insecure dev placeholders: <code>IDENTITY_HASH_SECRET</code>, <code>JWT_SECRET</code>, <code>DATABASE_URL</code>, <code>PUBLIC_BASE_URL</code>, and real <code>MAIL_PROVIDER</code> / credentials.</li>
+  <li>Confirm <code>SIM_BRAND_NAME</code> and <code>MAIL_FROM</code> name <strong>no real organization</strong> — the decoy is fictional by design and sends <code>noindex, nofollow</code>.</li>
+  <li>Rotate or remove the seeded demo admin before launch.</li>
+  <li>Confirm a signed consent/authorization is on file for <strong>every</strong> cohort you mark <code>granted</code>, scoped to the organization's own staff.</li>
+</ul>
+
+<h2 id="s7">7. Quick reference — where things live</h2>
+<table>
+  <thead><tr><th>You want…</th><th>Look at</th></tr></thead>
+  <tbody>
+    <tr><td>The build plan / dev spec</td><td><code>IMPLEMENTATION_PLAN.md</code></td></tr>
+    <tr><td>Phase-by-phase history</td><td><code>docs/PHASE_LOG.md</code></td></tr>
+    <tr><td>Every route + how a human reaches it</td><td><code>docs/ROUTES.md</code></td></tr>
+    <tr><td>The launch gate</td><td><code>docs/PRE_LAUNCH_CHECKLIST.md</code></td></tr>
+    <tr><td>Getting started / deploy notes</td><td><code>README.md</code></td></tr>
+    <tr><td>The consent gate</td><td><code>backend/src/services/consent.js</code></td></tr>
+    <tr><td>The decoy + discard-on-submit</td><td><code>backend/src/routes/sim.js</code>, <code>backend/src/views/simPages.js</code></td></tr>
+    <tr><td>Delivery (transient roster, aggregate receipt)</td><td><code>backend/src/services/delivery.js</code></td></tr>
+    <tr><td>The enrollment loop</td><td><code>backend/src/services/enrollment.js</code></td></tr>
+    <tr><td>Aggregate-only analytics + k-anonymity</td><td><code>backend/src/services/analytics.js</code>, <code>backend/src/repositories/analytics.js</code></td></tr>
+    <tr><td>Pause/rollback gate</td><td><code>backend/src/services/campaignState.js</code></td></tr>
+    <tr><td>Central config + every env var</td><td><code>backend/src/config/index.js</code></td></tr>
+    <tr><td>The admin console UI</td><td><code>frontend/src/admin/</code></td></tr>
+    <tr><td>The public learning site UI</td><td><code>frontend/src/learn/</code></td></tr>
+    <tr><td>The browser E2E</td><td><code>e2e/</code> (+ <code>e2e/README.md</code>)</td></tr>
+  </tbody>
+</table>
+
+<footer class="doc">
+  This overview reflects the repository at Phases 0–11 complete (full MVP). For the authoritative, test-pinned statement of each guardrail, see <code>docs/PRE_LAUNCH_CHECKLIST.md</code> §1.
+</footer>
+
+</div>
+</body>
+</html>

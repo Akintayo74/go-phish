@@ -187,6 +187,24 @@ Two free-tier caveats: a free web service spins down after ~15 minutes idle (the
 first tracked-link click after a quiet spell waits out a cold start), and a free
 Postgres instance is **deleted 30 days after creation**.
 
+**The blueprint sends no email by default.** `render.yaml` pins
+`MAIL_PROVIDER=console`, the hermetic transport that records send metadata and
+**dispatches nothing over the network**. A send still returns success and the
+admin receipt still shows a count, so a tester who sends a campaign to their own
+address will see the send "succeed" and yet **receive nothing** — no mail ever
+left the service. This is deliberate for a throwaway deploy, and it is the most
+common "why did no email arrive?" surprise. To deliver real mail (and walk the
+genuine send → click → train loop), set `MAIL_PROVIDER=smtp` on the service and
+supply `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` (and `SMTP_SECURE`
+for an implicit-TLS port) — a transactional relay such as SendGrid, Mailgun,
+SES, or Postmark. The `render.yaml` mailer section documents each variable.
+Also set `MAIL_FROM` to an address on a domain you control and have
+authenticated (SPF/DKIM): the default `no-reply@catsim.invalid` is
+non-routable, so real relays reject it and receiving servers bounce or junk it
+(keep the brand generic/fictional either way — guardrail). The `smtp` provider
+fails **closed** — with `MAIL_PROVIDER=smtp` but no `SMTP_HOST` it throws at
+startup rather than silently not sending.
+
 ### Before pointing it at anyone
 
 Walk [`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md) — it is a

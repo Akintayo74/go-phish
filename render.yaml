@@ -73,11 +73,43 @@ services:
       # own RENDER_EXTERNAL_URL, so tracked links resolve to the real host
       # without a manual step. Set it explicitly only behind a custom domain.
 
-      # Hermetic by default — records send metadata and dispatches nothing.
-      # Switch to `smtp` with SMTP_HOST/PORT/USER/PASS to exercise the real
-      # send -> click -> train loop.
+      # Hermetic by default — the `console` provider records send metadata and
+      # DISPATCHES NOTHING over the network. A send still reports success and the
+      # admin receipt still shows a count, but no mail ever leaves the service, so
+      # a tester who sends to their own address receives nothing. This is
+      # deliberate for a throwaway/demo deploy; it is also the single most common
+      # "why did no email arrive?" surprise. To actually deliver mail — and walk
+      # the real send -> click -> train loop — switch to `smtp` and supply the
+      # SMTP_* variables documented below.
       - key: MAIL_PROVIDER
         value: console
+
+      # --- Real email delivery (uncomment + fill in to enable) ------------------
+      # Set MAIL_PROVIDER=smtp above, then point these at a transactional relay
+      # (SendGrid / Mailgun / Amazon SES / Postmark all expose an SMTP endpoint).
+      # The provider fails CLOSED: with MAIL_PROVIDER=smtp but no SMTP_HOST it
+      # throws at startup rather than silently not sending. SMTP_PASS is a secret
+      # and is NEVER logged (services/mailer.js). See backend/src/config/index.js
+      # for the defaults each of these falls back to.
+      #
+      #   - key: SMTP_HOST          # relay host, e.g. smtp.sendgrid.net
+      #     sync: false             # set in the dashboard, not committed
+      #   - key: SMTP_PORT          # 587 for STARTTLS (default), or 465 with SMTP_SECURE=true
+      #     value: "587"
+      #   - key: SMTP_SECURE        # "true" only for an implicit-TLS port (465); otherwise omit
+      #     value: "false"
+      #   - key: SMTP_USER          # relay username / API-key id (e.g. "apikey" for SendGrid)
+      #     sync: false
+      #   - key: SMTP_PASS          # relay password / API key — SECRET, never logged
+      #     sync: false
+      #
+      # Deliverability note: MAIL_FROM below defaults to a non-routable `.invalid`
+      # address, which real relays reject and receiving servers bounce or junk.
+      # For a send that actually lands, set MAIL_FROM to an address on a domain you
+      # control and have authenticated (SPF/DKIM) at the relay — while keeping the
+      # brand generic/fictional (guardrail: no real-organization impersonation).
+      # Also honour your provider's rate limit via SEND_RATE_PER_SECOND (default 10).
+      # -------------------------------------------------------------------------
 
       # GUARDRAIL: generic and fictional. Neither may ever name a real
       # organization (IMPLEMENTATION_PLAN.md §1, checklist §2).
