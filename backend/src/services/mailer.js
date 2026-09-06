@@ -214,6 +214,94 @@ function createBrevoProvider({ sink, fetchImpl, apiKey, from, endpoint } = {}) {
   };
 }
 
+// The Mailgun (HTTP API) provider. Like brevo, sends over HTTPS/443 so it works
+// where outbound SMTP is blocked. Chosen over brevo when the lure's clickable
+// link must NOT be rewritten: Mailgun lets click/open tracking be turned off
+// PER MESSAGE (`o:tracking-clicks=no`), so the button keeps the real
+// `${publicBaseUrl}/t/<token>` URL instead of a provider-wrapped one. (Brevo
+// offers no such toggle, which mangled the lure button.)
+//
+// Config: MAIL_API_KEY is the Mailgun API key; MAILGUN_DOMAIN the sending domain
+// (a sandbox for testing, or a verified domain for real sends). Auth is HTTP
+// Basic `api:<key>`. Records METADATA ONLY (guardrail #2); a failure is
+// re-thrown as a status/code only so the recipient address Mailgun may echo in
+// an error body never reaches a log or the thrown message (guardrails #2/#6).
+function createMailgunProvider({ sink, fetchImpl, apiKey, from, domain, baseUrl } = {}) {
+  const key = apiKey !== undefined ? apiKey : config.mailApiKey;
+  const fromStr = from !== undefined ? from : config.mailFrom;
+  const sendingDomain = domain !== undefined ? domain : config.mailgunDomain;
+  const base = (baseUrl !== undefined ? baseUrl : config.mailgunBaseUrl).replace(/\/+$/, '');
+
+  // Fail closed at construction rather than silently not sending a campaign.
+  if (!key) {
+    throw new Error('mailer: MAIL_API_KEY is required for the mailgun provider');
+  }
+  if (!sendingDomain) {
+    throw new Error('mailer: MAILGUN_DOMAIN is required for the mailgun provider');
+  }
+
+  const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  if (!doFetch) {
+    throw new Error('mailer: no fetch available for the mailgun provider (Node >= 18)');
+  }
+
+  const url = `${base}/v3/${encodeURIComponent(sendingDomain)}/messages`;
+  const auth = `Basic ${Buffer.from(`api:${key}`).toString('base64')}`;
+
+  return {
+    name: 'mailgun',
+    async send(message) {
+      if (!message || !message.to) {
+        throw new Error('mailer: `to` is required');
+      }
+
+      // Mailgun accepts a "Name <addr>" from-string as-is. Tracking is disabled
+      // PER MESSAGE so Mailgun does not rewrite the tracked link in the lure.
+      const form = new URLSearchParams();
+      form.set('from', fromStr);
+      form.set('to', message.to);
+      if (message.subject) form.set('subject', message.subject);
+      if (message.html) form.set('html', message.html);
+      if (message.text) form.set('text', message.text);
+      form.set('o:tracking-clicks', 'no');
+      form.set('o:tracking-opens', 'no');
+
+      let res;
+      try {
+        res = await doFetch(url, {
+          method: 'POST',
+          headers: {
+            authorization: auth,
+            'content-type': 'application/x-www-form-urlencoded',
+            accept: 'application/json',
+          },
+          body: form.toString(),
+        });
+      } catch (err) {
+        const code = (err && err.code) || 'network_error';
+        throw new Error(`mailer: mailgun send failed (${code})`);
+      }
+
+      if (!res || !res.ok) {
+        // Mailgun's error body can echo the recipient, so it must NEVER be read
+        // into the thrown message. The status alone keeps it debuggable
+        // (401 = bad key, 400 = unauthorized recipient / bad domain).
+        const status = res ? res.status : 'no_response';
+        throw new Error(`mailer: mailgun send failed (http_${status})`);
+      }
+
+      let messageId = newMessageId();
+      try {
+        const data = await res.json();
+        if (data && data.id) messageId = String(data.id);
+      } catch (_err) {
+        // A 2xx with an unparseable body is still an accepted send.
+      }
+      return recordSend({ provider: 'mailgun', messageId, sink });
+    },
+  };
+}
+
 // Provider registry. Real providers register here; an unknown provider name
 // fails LOUDLY rather than silently no-op'ing a real campaign (fail closed —
 // better a visible config error than a silent non-send).
@@ -221,6 +309,7 @@ const PROVIDERS = {
   console: createConsoleProvider,
   smtp: createSmtpProvider,
   brevo: createBrevoProvider,
+  mailgun: createMailgunProvider,
 };
 
 function createMailer({ provider = config.mailProvider, ...opts } = {}) {
@@ -238,6 +327,7 @@ module.exports = {
   createConsoleProvider,
   createSmtpProvider,
   createBrevoProvider,
+  createMailgunProvider,
   parseFromAddress,
   PROVIDERS,
 };

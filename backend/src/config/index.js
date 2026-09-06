@@ -109,8 +109,20 @@ const config = {
   // From-address for simulated emails. Generic/fictional — must not impersonate
   // a real organization (guardrail: no real-brand impersonation).
   mailFrom: process.env.MAIL_FROM || 'IT Service Desk <no-reply@catsim.invalid>',
-  // Optional API key for a real provider. Never logged.
+  // Optional API key for a real provider (Brevo or Mailgun HTTP API). Never logged.
   mailApiKey: process.env.MAIL_API_KEY || null,
+
+  // Mailgun HTTP API settings, used when MAIL_PROVIDER=mailgun. The API path
+  // sends over HTTPS/443 (like the brevo provider), so it works where a host
+  // blocks outbound SMTP. MAILGUN_DOMAIN is the sending domain — a sandbox
+  // (`sandboxXXXX.mailgun.org`, only delivers to Authorized Recipients) for
+  // testing, or your own verified domain for a real send. Set MAILGUN_API_BASE_URL
+  // to the EU base (`https://api.eu.mailgun.net`) for an EU-region account.
+  mailgunDomain: process.env.MAILGUN_DOMAIN || null,
+  mailgunBaseUrl: (process.env.MAILGUN_API_BASE_URL || 'https://api.mailgun.net').replace(
+    /\/+$/,
+    ''
+  ),
 
   // SMTP transport settings, used when MAIL_PROVIDER=smtp. Point these at a
   // local catcher (Mailpit on :1025) in dev, or a real relay in production.
