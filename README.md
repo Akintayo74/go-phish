@@ -137,11 +137,14 @@ Tracked links (`/t`, `/sim`) and training links (`#/learn`, `#/enroll`) share a
 host, so `APP_BASE_URL` and `SIM_TRAINING_URL` need no override.
 
 ```bash
-npm ci && npm run build     # builds frontend/dist
-npm run migrate:latest      # schema
-npm run seed:run            # demo content + operators (see below)
-npm start                   # serves API + SPA on $PORT
+npm ci --include=dev && npm run build   # builds frontend/dist
+npm run bootstrap                       # migrate; seed only a fresh database
+npm start                               # serves API + SPA on $PORT
 ```
+
+`--include=dev` is required, not defensive: `NODE_ENV=production` makes npm omit
+devDependencies, and `vite` is one, so a plain `npm ci` builds nothing and the
+deploy dies on `vite: not found`.
 
 `backend/src/app.js` mounts `frontend/dist` when it exists and falls back to
 `index.html` for app routes, while leaving `/api`, `/t`, `/sim` and `/health` to
@@ -153,8 +156,22 @@ serves the app on :5173 and proxies `/api` back, and none of this mounts.
 ### Render
 
 [`render.yaml`](./render.yaml) is a Blueprint for one web service + one
-Postgres. Dashboard → New → Blueprint → point at this repo, then run
-`npm run seed:run` once from the service shell.
+Postgres. Dashboard → New → Blueprint → point at this repo. There is no second
+step: the free tier offers neither a pre-deploy command nor shell access, so
+[`backend/scripts/bootstrap.js`](./backend/scripts/bootstrap.js) runs from the
+start command instead — migrating every boot and seeding only a database that
+has never been seeded.
+
+That guard is load-bearing. The seeds are **destructive** (`01_demo_data.js`
+clears cohorts, participants and interactions before inserting) and a free
+instance restarts every time it wakes from idle, so an unguarded seed would
+erase collected behavioural data on every cold start. `SEED_ON_BOOT` controls
+it: `auto` (default) seeds only an unseeded database, `never` skips seeding,
+`force` reseeds and **discards collected data**.
+
+Log in the first time with `admin@example.test` and the generated
+`SEED_ADMIN_PASSWORD`, readable in the Render dashboard's Environment tab. Then
+create your own operator and remove the demo accounts.
 
 It leaves `PUBLIC_BASE_URL` unset on purpose: config falls back to Render's own
 `RENDER_EXTERNAL_URL`, so tracked links resolve to the real host without a
@@ -172,9 +189,11 @@ Walk [`docs/PRE_LAUNCH_CHECKLIST.md`](./docs/PRE_LAUNCH_CHECKLIST.md) — it is 
 launch gate, not a description of aspirations. Two deployment-specific notes:
 
 - **Secrets.** `IDENTITY_HASH_SECRET` and `JWT_SECRET` default to published dev
-  placeholders. `render.yaml` generates both. The seed refuses to run under
+  placeholders. `render.yaml` generates both. Bootstrap refuses to seed under
   `NODE_ENV=production` without `SEED_ADMIN_PASSWORD` rather than installing the
-  dev password that is committed to this repository.
+  dev password that is committed to this repository — and it checks that
+  *before* touching the database, so a missing value cannot leave a half-seeded
+  deployment with content but no operator to log in as.
 - **A public decoy page attracts scanners.** Every host's acceptable-use policy
   prohibits phishing content, and automated reputation services do not read the
   guardrails before flagging a URL. What keeps this legitimate is already in

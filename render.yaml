@@ -11,7 +11,9 @@
 # so APP_BASE_URL and SIM_TRAINING_URL need no override at all.
 #
 # First deploy: Render dashboard -> New -> Blueprint -> point at this repo.
-# Then run the seed once from the service shell:  npm run seed:run
+# Nothing else to do — the start command migrates, and seeds a fresh database
+# once (backend/scripts/bootstrap.js). Free instances have no pre-deploy step and
+# no shell, so neither can be a separate manual stage.
 
 databases:
   - name: catsim-db
@@ -29,11 +31,17 @@ services:
     # NOTE: a free web service spins down after ~15 minutes idle, so the first
     # request after a quiet period (including a participant's tracked-link
     # click) waits out a cold start.
-    buildCommand: npm ci && npm run build
-    # Runs against the new release before it takes traffic, so the schema is
-    # never behind the code that queries it.
-    preDeployCommand: npm run migrate:latest
-    startCommand: npm start
+    # --include=dev is REQUIRED, not belt-and-braces. NODE_ENV=production is set
+    # below and npm honours it by omitting devDependencies — which is where vite
+    # lives, so a plain `npm ci` here builds nothing and the deploy fails on
+    # `vite: not found`.
+    buildCommand: npm ci --include=dev && npm run build
+    # Free instances support no preDeployCommand, so the schema is brought up in
+    # the start command instead: migrate always, seed only a database that has
+    # never been seeded. Exits non-zero on failure, so an instance whose schema
+    # is behind its code never takes traffic. On a paid plan this line can move
+    # to `preDeployCommand` unchanged. See backend/scripts/bootstrap.js.
+    startCommand: npm run bootstrap && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -78,8 +86,18 @@ services:
       - key: MAIL_FROM
         value: IT Service Desk <no-reply@catsim.invalid>
 
-      # Seeds the demo operators. Pre-launch checklist §6 — the seed refuses to
-      # run in production without it rather than installing the dev password
-      # that is published in this repository.
+      # Password for the demo operators. Pre-launch checklist §6 — bootstrap
+      # refuses to seed in production without it rather than installing the dev
+      # password that is published in this repository. Read it from the Render
+      # dashboard (Environment tab) to log in the first time, then create your
+      # own operator and remove the demo accounts.
       - key: SEED_ADMIN_PASSWORD
         generateValue: true
+
+      # 'auto' seeds only a database that has never been seeded, which is what
+      # makes restarts safe: the seeds are DESTRUCTIVE (they clear cohorts,
+      # participants and interactions before inserting) and a free instance
+      # restarts every time it wakes from idle. 'never' skips seeding; 'force'
+      # reseeds unconditionally and DISCARDS collected data.
+      - key: SEED_ON_BOOT
+        value: auto

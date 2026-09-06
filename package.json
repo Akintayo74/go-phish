@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspace frontend",
+    "bootstrap": "npm run bootstrap --workspace backend",
     "start": "npm start --workspace backend",
     "migrate:latest": "npm run migrate:latest --workspace backend",
     "seed:run": "npm run seed:run --workspace backend",

@@ -6,6 +6,7 @@
   "type": "commonjs",
   "main": "src/index.js",
   "scripts": {
+    "bootstrap": "node scripts/bootstrap.js",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "jest --runInBand",
