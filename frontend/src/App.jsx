@@ -3,7 +3,7 @@ import AdminConsole from './admin/AdminConsole.jsx';
 import LearningSite from './learn/LearningSite.jsx';
 import EnrollView from './enroll/EnrollView.jsx';
 import { color, radius, type } from './ui/theme.js';
-import { Wordmark, Card, Note, Field, Input, Select, Button, QuietLink, Eyebrow } from './ui/primitives.jsx';
+import { Wordmark, Card, Note, Button, QuietLink, Eyebrow } from './ui/primitives.jsx';
 
 // App shell. A tiny hash-based switch (no router dependency yet) selects between
 // the public landing view, the Phase 3 admin console at #/admin, and the public
@@ -21,11 +21,14 @@ function useHashRoute() {
   return hash;
 }
 
-// Screen `2h` — the enrolment & training landing. The first screen a
-// participant sees: enrol with a work email, or leave to read the lessons
-// without enrolling. It also carries the load-bearing disclosure that
-// simulations happen and are not scored against the individual. Five blocks
-// enter on a 40ms omRise stagger.
+// Screen `2h` — the training landing. The first screen a participant sees.
+//
+// It offers exactly one action, and that action is real: the lessons are public
+// and unauthenticated (see routes/learn.js), so they open with no sign-up and no
+// email. Enrolment into a SIMULATION is deliberately not offered here — see the
+// note on the enrolment card below. The screen also carries the load-bearing
+// disclosure that simulations happen and are not scored against the individual.
+// Five blocks enter on a 40ms omRise stagger.
 function Landing() {
   const [health, setHealth] = useState('checking…');
 
@@ -69,8 +72,9 @@ function Landing() {
             Phishing awareness training for public service staff.
           </h2>
           <p style={{ ...type.lead, color: color.textSecondary, maxWidth: '56ch', margin: 0 }}>
-            Enrol once with your work email. You will get five short lessons, and at some point in
-            the next few months a simulated phishing message you are not told about in advance.
+            The lessons are open to everyone — no sign-up, no email. If your organisation runs
+            CAT-Sim, you may also receive a simulated phishing message at some point, which you are
+            not told about in advance.
           </p>
         </section>
 
@@ -83,26 +87,36 @@ function Landing() {
           style={{ ...rise(2), display: 'flex', flexDirection: 'column', gap: 18 }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>Enrol in training</h3>
+            <h3 style={{ ...type.cardTitle, color: color.ink, margin: 0 }}>Start the training</h3>
             <p style={{ fontSize: 14, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
-              Takes about a minute. Your organisation must already run CAT-Sim.
+              Five short lessons, open to anyone. Nothing to sign up for, and we record nothing
+              about who reads what.
             </p>
           </div>
-          <EnrolForm />
+
+          <a href="#/learn" style={{ textDecoration: 'none' }} data-testid="start-lessons">
+            <Button variant="primary" full large>
+              Start the lessons{' '}
+              <span style={{ opacity: 0.7 }} aria-hidden="true">→</span>
+            </Button>
+          </a>
+
           <Note>
             <strong style={{ fontWeight: 600 }}>Simulations are never scored against you.</strong>{' '}
             Results are reported by cohort, not by person. Your manager does not see whether you
             clicked, and nothing you type into a simulated form is ever stored.
           </Note>
-          <p style={{ textAlign: 'center', fontSize: 13, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
-            By enrolling you accept the{' '}
-            <a href="#/learn">participation notice</a>.
+
+          <p style={{ fontSize: 13, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
+            Does your organisation run CAT-Sim? Simulations are arranged by your programme
+            administrator for a whole department at a time — ask your IT team to include yours.
+            You cannot add yourself.
           </p>
         </Card>
 
         {/* 4 — what happens after you enrol */}
         <section className="cs-rise" style={{ ...rise(3), display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Eyebrow>What happens after you enrol</Eyebrow>
+          <Eyebrow>How the programme works</Eyebrow>
           <div
             style={{
               background: color.borderSubtle,
@@ -114,8 +128,8 @@ function Landing() {
             }}
           >
             {[
-              ['01', 'The lessons open immediately — take them in any order.'],
-              ['02', 'A simulated message arrives later, unannounced.'],
+              ['01', 'The lessons are open now — take them in any order.'],
+              ['02', 'If your organisation runs a simulation, a message arrives unannounced.'],
               ['03', 'Either way you land on a page explaining what it was.'],
             ].map(([num, text]) => (
               <div key={num} style={{ background: color.surface, borderRadius: radius.nested, padding: '15px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -141,11 +155,12 @@ function Landing() {
           }}
         >
           <p style={{ fontSize: 14, lineHeight: 1.5, color: color.textMuted, margin: 0 }}>
-            Not enrolling? The lessons are free and open to anyone.
+            How your data is handled, and what a simulation does and does not record.
           </p>
           <a href="#/learn" style={{ textDecoration: 'none' }}>
             <Button variant="secondary">
-              Browse the lessons <span style={{ color: color.textMuted }} aria-hidden="true">→</span>
+              Participation notice{' '}
+              <span style={{ color: color.textMuted }} aria-hidden="true">→</span>
             </Button>
           </a>
         </footer>
@@ -159,103 +174,28 @@ function Landing() {
   );
 }
 
-// The enrolment form (2h). Client-side validation on blur/submit per the
-// handoff. There is no public self-enrolment endpoint in the backend — the
-// programme enrols participants operator-side and via the simulation flow — so
-// on a valid submit this surfaces the honest next step (the lessons open now;
-// the simulation arrives later) rather than posting to a route that does not
-// exist.
-const DEPARTMENTS = [
-  'Retail Operations',
-  'Finance & Treasury',
-  'Human Resources',
-  'Information Technology',
-];
-
-function EnrolForm() {
-  const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('');
-  const [cohortCode, setCohortCode] = useState('');
-  const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
-
-  function validate() {
-    const next = {};
-    const value = email.trim();
-    if (!value) next.email = 'Enter your work email address.';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) next.email = 'That does not look like a valid email address.';
-    if (!department) next.department = 'Choose your department.';
-    return next;
-  }
-
-  function submit(e) {
-    e.preventDefault();
-    const next = validate();
-    setErrors(next);
-    if (Object.keys(next).length === 0) setSubmitted(true);
-  }
-
-  if (submitted) {
-    return (
-      <div role="status" data-testid="enrol-submitted" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <Note>
-          <strong style={{ fontWeight: 600 }}>You are enrolled.</strong> The lessons are open now —
-          start whenever you like. A simulated message will arrive later, unannounced, and either
-          way you will land on a page explaining what it was.
-        </Note>
-        <a href="#/learn" style={{ textDecoration: 'none' }}>
-          <Button variant="primary" full>Start the lessons</Button>
-        </a>
-      </div>
-    );
-  }
-
-  const errStyle = { color: color.danger, fontSize: 13, margin: 0 };
-
-  return (
-    <form onSubmit={submit} aria-label="enrol in training" noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <Field label="Work email address" htmlFor="enrol-email">
-        <Input
-          id="enrol-email"
-          type="email"
-          value={email}
-          placeholder="ada.okonkwo@ministry.gov.ng"
-          onChange={(e) => setEmail(e.target.value)}
-          onBlur={() => setErrors((p) => ({ ...p, ...validate() }))}
-          aria-invalid={errors.email ? 'true' : undefined}
-        />
-        {errors.email && <p role="alert" style={errStyle}>{errors.email}</p>}
-      </Field>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(0, 1fr))', gap: 12 }}>
-        <Field label="Department" htmlFor="enrol-dept">
-          <Select
-            id="enrol-dept"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            aria-invalid={errors.department ? 'true' : undefined}
-          >
-            <option value="">Select department</option>
-            {DEPARTMENTS.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </Select>
-          {errors.department && <p role="alert" style={errStyle}>{errors.department}</p>}
-        </Field>
-        <Field label="Cohort code" optional htmlFor="enrol-cohort">
-          <Input
-            id="enrol-cohort"
-            value={cohortCode}
-            placeholder="RO-2026-A"
-            onChange={(e) => setCohortCode(e.target.value)}
-          />
-        </Field>
-      </div>
-
-      <Button type="submit" variant="primary" full>Enrol in training</Button>
-    </form>
-  );
-}
+// NOTE: this screen used to carry a self-enrolment form (work email +
+// department -> "You are enrolled"). It posted nowhere and the confirmation was
+// fabricated, which a platform whose whole claim is transparency cannot do.
+//
+// It was not rewired to a real endpoint, because self-enrolment is not a
+// missing feature — it is excluded by the design:
+//
+//   * Consent in CAT-Sim is ORGANISATIONAL and cohort-level, with a signed
+//     authorisation on file per cohort (IMPLEMENTATION_PLAN.md guardrail #3,
+//     PRE_LAUNCH_CHECKLIST.md §7). A web form cannot stand in for that, and it
+//     would create a route into a consented cohort that never passed a Program
+//     Admin.
+//   * A public "type an email -> get enrolled" endpoint lets anyone enter
+//     SOMEONE ELSE'S address and make this system mail that person a phishing
+//     simulation. That is an open relay wearing a consent form.
+//   * Participants are pseudonymous (only a keyed hash is stored, which is why
+//     POST /api/participants/lookup has to exist), so a bogus self-enrolment is
+//     not reviewable by a human afterwards.
+//
+// The screen now offers the action that is genuinely available: the lessons are
+// public and unauthenticated, so they open with no sign-up at all. Roster
+// changes stay where consent lives — the admin console.
 
 export default function App() {
   const hash = useHashRoute();
