@@ -109,6 +109,23 @@ services:
       # control and have authenticated (SPF/DKIM) at the relay — while keeping the
       # brand generic/fictional (guardrail: no real-organization impersonation).
       # Also honour your provider's rate limit via SEND_RATE_PER_SECOND (default 10).
+      #
+      # IF SMTP HANGS ~120s THEN FAILS: this host blocks outbound SMTP ports
+      # (25/465/587/2525) — a common PaaS restriction. Every send then sits for
+      # nodemailer's full connection timeout and fails, with nothing reaching the
+      # provider. Don't fight it with ports; send over HTTPS (443) instead:
+      #
+      #   MAIL_PROVIDER=brevo  + MAIL_API_KEY  (Brevo transactional email API)
+      #
+      #   - key: MAIL_API_KEY       # Brevo v3 API key (starts `xkeysib-`) — SECRET
+      #     sync: false             # from Brevo -> SMTP & API -> API Keys
+      #
+      # The `brevo` provider (services/mailer.js) posts to api.brevo.com over 443,
+      # which is never blocked, and needs no SMTP_* vars. It also fails CLOSED
+      # (no MAIL_API_KEY -> throws at startup) and never logs the key or recipient.
+      # MAIL_FROM must still be a verified Brevo sender. A failed send now records
+      # a safe reason code in the send receipt + logs (e.g. `brevo:http_401` = bad
+      # key) so the cause is visible instead of a silent `failed` count.
       # -------------------------------------------------------------------------
 
       # GUARDRAIL: generic and fictional. Neither may ever name a real

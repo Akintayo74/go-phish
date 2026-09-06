@@ -43,6 +43,19 @@ function realSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Reduce a send failure to a SAFE, aggregate reason code. The mailer re-throws
+// provider errors in exactly one shape — `mailer: <provider> send failed
+// (<code>)` — where the code is a status/errno only, never a recipient. We
+// trust ONLY that shape; any other error message could be an unwrapped provider
+// error that echoes the address Brevo/SMTP put in it, so it is bucketed as a
+// generic label. This keeps failure_reasons (and the warn log) free of PII —
+// pinned by delivery.loadtest ("the provider error is never surfaced verbatim").
+function safeFailureReason(err) {
+  const msg = (err && err.message) || '';
+  const m = /^mailer: ([a-z]+) send failed \(([^)]+)\)$/.exec(msg);
+  return m ? `${m[1]}:${m[2]}` : 'send_failed';
+}
+
 // Sends a campaign to the supplied recipient addresses. Returns an AGGREGATE
 // summary only — counts per outcome, never a per-address result — so an
 // operational send receipt cannot become a per-individual leak (guardrail #5).
@@ -94,6 +107,12 @@ async function sendCampaign({
     skipped: { unknown: 0, not_deliverable: 0, already_sent: 0 },
     failed: 0,
     ineligible_reasons: {},
+    // Aggregate, address-free tally of WHY sends failed, keyed by the mailer's
+    // safe error code (e.g. `mailer: brevo send failed (http_401)`). This is the
+    // one place a delivery failure becomes visible to an operator — the mailer
+    // guarantees these messages carry a status/code only, never a recipient, so
+    // this stays within guardrail #5 (aggregate-only) and #2 (no PII in logs).
+    failure_reasons: {},
   };
 
   for (const raw of recipients) {
@@ -148,9 +167,16 @@ async function sendCampaign({
       // `raw` is used ONLY as the mail recipient here and is never persisted.
       await transport.send({ to: raw, subject, html, text });
       summary.sent += 1;
-    } catch (_err) {
-      // Never surface the provider error verbatim (could echo the address).
+    } catch (err) {
+      // The mailer re-throws provider errors as a safe status/code only (never
+      // the recipient address), so err.message is safe to tally and log. This
+      // is what makes a delivery failure debuggable: without it a blocked SMTP
+      // port or a bad API key showed up only as a silent `failed` count.
       summary.failed += 1;
+      const reason = safeFailureReason(err);
+      summary.failure_reasons[reason] = (summary.failure_reasons[reason] || 0) + 1;
+      // eslint-disable-next-line no-console
+      console.warn(`[delivery] send failed campaign=${campaign.id} reason=${reason}`);
     }
 
     if (delayMs > 0) await sleep(delayMs);
