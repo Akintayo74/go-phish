@@ -79,10 +79,19 @@ services:
       # a tester who sends to their own address receives nothing. This is
       # deliberate for a throwaway/demo deploy; it is also the single most common
       # "why did no email arrive?" surprise. To actually deliver mail — and walk
-      # the real send -> click -> train loop — switch to `smtp` and supply the
-      # SMTP_* variables documented below.
+      # the real send -> click -> train loop — switch to `smtp`/`brevo`/`mailgun`
+      # and supply that provider's variables documented below.
+      #
+      # DASHBOARD-MANAGED (`sync: false`), NOT a committed `value:` — on purpose.
+      # A hard-coded value here is BLUEPRINT-MANAGED: Render reverts any dashboard
+      # change back to it on the next blueprint sync (which a redeploy runs), so a
+      # committed `value: console` silently reset a dashboard MAIL_PROVIDER=mailgun
+      # back to `console` and sent every campaign through the no-op provider. Left
+      # unset (the fresh-deploy state), config falls back to `console` in
+      # backend/src/config/index.js — so the deploy is STILL hermetic by default —
+      # while a value you set in the dashboard now actually persists across deploys.
       - key: MAIL_PROVIDER
-        value: console
+        sync: false
 
       # --- Real email delivery (uncomment + fill in to enable) ------------------
       # Set MAIL_PROVIDER=smtp above, then point these at a transactional relay
@@ -163,8 +172,17 @@ services:
       # organization (IMPLEMENTATION_PLAN.md §1, checklist §2).
       - key: SIM_BRAND_NAME
         value: ACME Corp — Staff Portal
+      # DASHBOARD-MANAGED (`sync: false`) for the same reason as MAIL_PROVIDER: a
+      # committed value here reverts your real sender back to the non-routable
+      # `.invalid` placeholder on every blueprint sync, which real relays reject.
+      # Left unset, config falls back to that same safe placeholder — so the
+      # default stays inert — while the sender you set in the dashboard persists.
+      # Set your verified Brevo sender, or (for Mailgun) an address on your sending
+      # domain, e.g. `IT Service Desk <no-reply@sandboxXXXX.mailgun.org>`. The from
+      # DOMAIN must match MAILGUN_DOMAIN. GUARDRAIL: whatever you set must stay
+      # generic and fictional — never name a real organization.
       - key: MAIL_FROM
-        value: IT Service Desk <no-reply@catsim.invalid>
+        sync: false
 
       # Password for the demo operators. Pre-launch checklist §6 — bootstrap
       # refuses to seed in production without it rather than installing the dev
