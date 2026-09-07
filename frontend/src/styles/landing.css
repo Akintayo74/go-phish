@@ -1,0 +1,1879 @@
+/*
+ * CAT-Sim landing surface — the "Signal" direction.
+ * ---------------------------------------------------------------------------
+ * This is a MARKETING surface and it is deliberately governed by its own rules,
+ * separate from the "Civic" app system in styles/global.css + ui/theme.js.
+ *
+ * Civic is right for the console and the lessons: quiet, flat, no shadows,
+ * depth built from 1px borders and a background ramp. Applied to a landing page
+ * it reads as a government form — which is the feedback this file answers.
+ *
+ * What Signal changes, on purpose:
+ *   * ELEVATION EXISTS. Civic bans box-shadow outside the focus ring. Here there
+ *     is a shadow scale and a glow scale, because a page that has to sell
+ *     something needs a foreground and a background.
+ *   * A DARK GROUND. The hero, the ledger and the closing band are near-black
+ *     with a slow aurora behind them. The warm off-white of the app is kept for
+ *     the sections between, so the page reads as bands of dark/light rather than
+ *     as a different product.
+ *   * A SECOND FAMILY. Instrument Serif (italic) carries one or two accent words
+ *     per heading. global.css says the serif directions were rejected — they
+ *     were, for the app. One italic word in a hero is not a body typeface.
+ *   * MOTION IS A FEATURE, not a single 400ms entrance. Scroll reveals, a
+ *     self-playing product demo, a marquee, cursor spotlights, hover lift.
+ *
+ * What Signal does NOT change:
+ *   * The brand anchor is still the Civic indigo (#3f4bbd), extended into a
+ *     gradient family rather than replaced.
+ *   * The warm neutral ramp is still warm. Cool-grey "generic SaaS" is exactly
+ *     what the contrast with the dark bands is there to avoid.
+ *   * prefers-reduced-motion is still MANDATORY and still absolute. Every
+ *     animation in this file resolves to its final state at the bottom.
+ *
+ * Everything here is class-based rather than inline (Civic keeps look in JS so
+ * it survives Vitest's `css: false`). That is fine: the landing tests assert
+ * content and structure — the CTA target, that the page collects nothing — and
+ * none of them assert a style. Keyframes, hover, backdrop-filter, masks and
+ * media queries cannot be expressed in a style attribute at all.
+ */
+
+/* ==========================================================================
+   1. Tokens
+   ========================================================================== */
+
+.l-root {
+  /* --- Dark ground ------------------------------------------------------ */
+  --l-ink: #0a0b10;
+  --l-ink-raised: #12141d;
+  --l-ink-hi: #1a1d29;
+  --l-on-dark: #f4f4f7;
+  --l-on-dark-soft: #c2c5d2;
+  --l-on-dark-muted: #8d91a2;
+  --l-line-dark: rgba(255, 255, 255, 0.09);
+  --l-line-dark-hi: rgba(255, 255, 255, 0.16);
+
+  /* --- Warm light ground (inherited from Civic) -------------------------- */
+  --l-canvas: #f7f7f5;
+  --l-surface: #fcfcfb;
+  --l-surface-raised: #ffffff;
+  --l-line: #e6e6e2;
+  --l-line-soft: #eeeeec;
+  --l-heading: #16171a;
+  --l-body: #33373a;
+  --l-muted: #64686b;
+
+  /* --- Brand: the Civic indigo, extended -------------------------------- */
+  --l-brand: #3f4bbd;
+  --l-brand-lift: #6d78f0;
+  --l-violet: #9b6cf6;
+  --l-aqua: #35d6c0;
+  --l-gradient: linear-gradient(104deg, var(--l-brand-lift) 0%, var(--l-violet) 46%, var(--l-aqua) 100%);
+  --l-gradient-soft: linear-gradient(104deg, rgba(109, 120, 240, 0.16), rgba(155, 108, 246, 0.14) 46%, rgba(53, 214, 192, 0.14));
+  --l-gradient-bright: linear-gradient(112deg, #9aa4ff, #bb8cff 48%, #5fe0c8);
+
+  /* --- Signal colours (the demo's flags and verdicts) -------------------- */
+  --l-alert: #ff8a72;
+  --l-alert-dim: rgba(255, 138, 114, 0.14);
+  --l-caution: #ffc266;
+  --l-safe: #3ddc97;
+  --l-safe-dim: rgba(61, 220, 151, 0.14);
+
+  /* --- Elevation (the rule Civic does not have) -------------------------- */
+  --l-sh-sm: 0 1px 2px rgba(16, 17, 26, 0.05), 0 2px 8px rgba(16, 17, 26, 0.05);
+  --l-sh-md: 0 2px 6px rgba(16, 17, 26, 0.05), 0 14px 34px -10px rgba(16, 17, 26, 0.12);
+  --l-sh-lg: 0 30px 80px -28px rgba(16, 17, 26, 0.4), 0 8px 24px -12px rgba(16, 17, 26, 0.16);
+  --l-glow: 0 0 90px -20px rgba(109, 120, 240, 0.7);
+
+  --l-r-sm: 10px;
+  --l-r-md: 14px;
+  --l-r-lg: 20px;
+  --l-r-xl: 28px;
+
+  /* The master clock for the self-playing demo. Every element in it runs an
+     animation of exactly this duration, so they stay in lockstep without a
+     single JS timer — the schedule lives in the keyframe percentages. */
+  --l-demo: 15s;
+
+  background: var(--l-surface);
+  color: var(--l-body);
+}
+
+/* Serif accent. Loaded in index.html alongside Instrument Sans. */
+.l-serif {
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  /* The serif's cap height runs a touch small against the sans at the same
+     size; a hair of extra size puts the two on the same optical line. */
+  font-size: 1.06em;
+}
+
+.l-grad-text {
+  background: var(--l-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Fallback for anything that cannot clip a background to text. */
+  -webkit-text-fill-color: transparent;
+  background-size: 220% 100%;
+  animation: lShift 9s ease-in-out infinite;
+}
+
+@keyframes lShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* ==========================================================================
+   2. Section scaffolding
+   ========================================================================== */
+
+.l-section {
+  position: relative;
+  padding-block: clamp(72px, 60px + 5vw, 128px);
+  /* Clears the sticky nav for in-page anchors (#how). */
+  scroll-margin-top: 84px;
+}
+.l-section--dark {
+  background: var(--l-ink);
+  color: var(--l-on-dark-soft);
+  isolation: isolate;
+  /* The ambient blobs are wider than the band on purpose; this is what keeps
+     them from adding a horizontal scrollbar to the document. */
+  overflow: clip;
+}
+.l-section--canvas {
+  background: var(--l-canvas);
+}
+.l-section--tight {
+  padding-block: clamp(56px, 48px + 3vw, 88px);
+}
+
+.l-wrap {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: clamp(20px, 11.24px + 2.247vw, 40px);
+  position: relative;
+  z-index: 1;
+}
+.l-wrap--narrow {
+  max-width: 900px;
+}
+
+/* Section headers share one rhythm so the page has a spine. */
+.l-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 620px;
+  margin-bottom: clamp(36px, 28px + 2vw, 56px);
+}
+.l-head--center {
+  max-width: 680px;
+  margin-inline: auto;
+  text-align: center;
+  align-items: center;
+}
+.l-h2 {
+  margin: 0;
+  font-size: clamp(29px, 24.2px + 1.23vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.032em;
+  font-weight: 500;
+  color: var(--l-heading);
+  text-wrap: balance;
+}
+.l-section--dark .l-h2 {
+  color: var(--l-on-dark);
+}
+.l-sub {
+  margin: 0;
+  font-size: clamp(16px, 15.6px + 0.11vw, 18px);
+  line-height: 1.6;
+  color: var(--l-muted);
+  max-width: 58ch;
+}
+.l-section--dark .l-sub {
+  color: var(--l-on-dark-muted);
+}
+
+/* The eyebrow: a small capsule, not a bare uppercase run. */
+.l-eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--l-brand);
+  background: rgba(109, 120, 240, 0.09);
+  border: 1px solid rgba(109, 120, 240, 0.18);
+  white-space: nowrap;
+}
+.l-section--dark .l-eyebrow,
+.l-hero .l-eyebrow {
+  color: var(--l-on-dark);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--l-line-dark-hi);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* A live dot: the ring pulses outward, the core stays put. */
+.l-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--l-aqua);
+  flex: none;
+}
+.l-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 1px solid var(--l-aqua);
+  animation: lPulse 2.4s ease-out infinite;
+}
+@keyframes lPulse {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  70%  { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ==========================================================================
+   3. The reveal system
+   Elements opt in with [data-reveal]; one IntersectionObserver on the page root
+   flips [data-revealed] as they arrive. --d is a per-item stagger.
+   ========================================================================== */
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 760ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--d, 0ms);
+  filter: blur(6px);
+}
+/* Scoped to the pre-reveal state on purpose. `will-change` left on permanently
+   pins a compositor layer per block for the life of the page — a dozen layers
+   held for one 760ms transition each, which costs memory and makes the element
+   render as an empty layer in some paint paths. Once revealed, the hint has
+   done its job and the layer should go back. */
+[data-reveal]:not([data-revealed]) {
+  will-change: opacity, transform, filter;
+}
+[data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+[data-reveal='scale'] {
+  transform: translateY(28px) scale(0.97);
+}
+[data-reveal='scale'][data-revealed] {
+  transform: none;
+}
+
+/* ==========================================================================
+   4. Chrome — scroll progress + condensing nav
+   ========================================================================== */
+
+.l-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 60;
+  background: var(--l-gradient);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--l-scroll, 0));
+  pointer-events: none;
+}
+
+.l-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: background-color 320ms ease, border-color 320ms ease, backdrop-filter 320ms ease;
+  border-bottom: 1px solid transparent;
+}
+.l-nav[data-stuck] {
+  background: rgba(10, 11, 16, 0.72);
+  border-bottom-color: var(--l-line-dark);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+.l-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 72px;
+  transition: height 320ms ease;
+}
+.l-nav[data-stuck] .l-nav-inner {
+  height: 60px;
+}
+.l-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Wordmark, rebuilt for the dark ground: the Civic square becomes a gradient
+   tile with a soft bloom behind it. */
+.l-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--l-on-dark);
+  white-space: nowrap;
+}
+.l-mark-tile {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--l-gradient);
+  flex: none;
+  box-shadow: 0 0 22px -4px rgba(109, 120, 240, 0.8);
+}
+.l-mark-tile::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  width: 10px;
+  height: 5px;
+  border: 1.6px solid #fff;
+  border-top: none;
+  border-right: none;
+  border-radius: 1px;
+  transform: rotate(-45deg);
+}
+
+/* ==========================================================================
+   5. Buttons
+   ========================================================================== */
+
+.l-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 14px 22px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+.l-btn:active {
+  transform: translateY(0) scale(0.985);
+}
+.l-btn-arrow {
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.l-btn:hover .l-btn-arrow {
+  transform: translateX(4px);
+}
+
+/* Primary: the gradient fill with a shine that sweeps once per hover. */
+.l-btn--primary {
+  background: var(--l-gradient);
+  background-size: 160% 100%;
+  color: #fff;
+  box-shadow: 0 10px 30px -12px rgba(109, 120, 240, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.l-btn--primary:hover {
+  transform: translateY(-2px);
+  background-position: 100% 50%;
+  box-shadow: 0 18px 44px -14px rgba(109, 120, 240, 1), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.l-btn--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+}
+.l-btn--primary:hover::before {
+  animation: lShine 780ms ease-out;
+}
+@keyframes lShine {
+  to { left: 130%; }
+}
+
+/* Glass: the second action on a dark ground. */
+.l-btn--glass {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--l-line-dark-hi);
+  color: var(--l-on-dark);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.l-btn--glass:hover {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.26);
+  transform: translateY(-2px);
+}
+
+/* Ink: the primary on a LIGHT ground, kept from Civic so the two systems still
+   recognise each other. */
+.l-btn--ink {
+  background: var(--l-heading);
+  color: #fff;
+  border-color: var(--l-heading);
+  box-shadow: var(--l-sh-md);
+}
+.l-btn--ink:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--l-sh-lg);
+}
+.l-btn--outline {
+  background: var(--l-surface-raised);
+  border-color: var(--l-line);
+  color: var(--l-heading);
+  box-shadow: var(--l-sh-sm);
+}
+.l-btn--outline:hover {
+  transform: translateY(-2px);
+  border-color: #d6d6d1;
+  box-shadow: var(--l-sh-md);
+}
+.l-btn--lg {
+  min-height: 54px;
+  padding: 17px 28px;
+  font-size: 16.5px;
+  border-radius: 14px;
+}
+
+@media (max-width: 559px) {
+  .l-cta-row {
+    width: 100%;
+  }
+  .l-cta-row .l-btn {
+    flex: 1 1 240px;
+  }
+}
+
+/* The quiet door to the console — subordinate, as it was in Civic. */
+.l-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--l-on-dark-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  background: transparent;
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease;
+}
+.l-quiet:hover {
+  color: var(--l-on-dark);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--l-line-dark);
+}
+
+/* One focus treatment for the whole surface. */
+.l-root a:focus-visible,
+.l-root button:focus-visible {
+  outline: 2px solid var(--l-brand-lift);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+/* The nav and footer sit on the dark ground too, and the nav is a sibling of
+   the hero rather than a child of it — so neither is covered by the hero
+   selector and both need naming here. */
+.l-section--dark a:focus-visible,
+.l-hero a:focus-visible,
+.l-hero button:focus-visible,
+.l-nav a:focus-visible,
+.l-nav button:focus-visible,
+.l-footer a:focus-visible {
+  outline-color: #fff;
+}
+
+/* ==========================================================================
+   6. Hero
+   Three stacked ambient layers on a near-black ground: drifting aurora blobs,
+   a masked grid, and a grain overlay. Each is aria-hidden decoration; all three
+   stop dead under reduced motion.
+   ========================================================================== */
+
+.l-hero {
+  position: relative;
+  background: var(--l-ink);
+  color: var(--l-on-dark-soft);
+  isolation: isolate;
+  overflow: clip;
+  /* The nav is a SIBLING above this band, not a child of it: `position: sticky`
+     inside an `overflow: clip` ancestor is clipped away the moment it leaves
+     that ancestor's box, so a nav nested in the hero would vanish on the first
+     scroll. Pulling the hero up by the nav's height and padding it back puts
+     the aurora behind a transparent nav without nesting the two. */
+  margin-top: -72px;
+  padding-top: 72px;
+}
+
+.l-hero-body {
+  padding-block: clamp(56px, 40px + 5vw, 104px) clamp(72px, 56px + 5vw, 120px);
+}
+
+/* --- Ambient layer 1: aurora ---------------------------------------------
+   Three big blurred radial fields on slow, differently-timed drifts, so the
+   ground never repeats a frame you would notice. */
+.l-aurora {
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 150%;
+  z-index: -3;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.75;
+}
+.l-blob {
+  position: absolute;
+  border-radius: 999px;
+  will-change: transform;
+}
+.l-blob--1 {
+  width: 46vw;
+  min-width: 380px;
+  aspect-ratio: 1.25;
+  left: -6%;
+  top: 12%;
+  background: radial-gradient(circle at 40% 40%, rgba(109, 120, 240, 0.62), transparent 68%);
+  animation: lDrift1 26s ease-in-out infinite;
+}
+.l-blob--2 {
+  width: 40vw;
+  min-width: 340px;
+  aspect-ratio: 1;
+  right: 2%;
+  top: 4%;
+  background: radial-gradient(circle at 55% 45%, rgba(155, 108, 246, 0.5), transparent 68%);
+  animation: lDrift2 32s ease-in-out infinite;
+}
+.l-blob--3 {
+  width: 34vw;
+  min-width: 300px;
+  aspect-ratio: 1.4;
+  left: 34%;
+  bottom: 6%;
+  background: radial-gradient(circle at 50% 50%, rgba(53, 214, 192, 0.3), transparent 70%);
+  animation: lDrift3 38s ease-in-out infinite;
+}
+@keyframes lDrift1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(9%, 7%, 0) scale(1.14); }
+}
+@keyframes lDrift2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06); }
+  50%      { transform: translate3d(-11%, 9%, 0) scale(0.92); }
+}
+@keyframes lDrift3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50%      { transform: translate3d(8%, -12%, 0) scale(1.2); }
+}
+
+/* --- Ambient layer 2: grid ------------------------------------------------
+   Faded out radially so it never reaches an edge and reads as texture rather
+   than as a table. */
+.l-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 68px 68px;
+  -webkit-mask-image: radial-gradient(115% 78% at 50% 28%, #000 12%, transparent 72%);
+  mask-image: radial-gradient(115% 78% at 50% 28%, #000 12%, transparent 72%);
+}
+
+/* --- Ambient layer 3: grain ----------------------------------------------
+   The single most effective anti-flatness trick there is: a hair of noise stops
+   the big gradients banding and gives the black a surface. */
+.l-grain {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* A hairline that fades the dark band into the light section below. */
+.l-hero::after,
+.l-section--dark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--l-line-dark-hi) 22%, var(--l-line-dark-hi) 78%, transparent);
+  pointer-events: none;
+}
+
+/* --- Hero layout ---------------------------------------------------------- */
+.l-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(44px, 30px + 4vw, 72px);
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .l-hero-grid {
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+    gap: 60px;
+  }
+}
+
+.l-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 26px;
+}
+
+.l-h1 {
+  margin: 0;
+  font-size: clamp(40px, 30px + 4.4vw, 68px);
+  line-height: 1.03;
+  letter-spacing: -0.038em;
+  font-weight: 500;
+  color: var(--l-on-dark);
+  text-wrap: balance;
+}
+
+/* Headline reveal: each line is a mask, its inner span slides up out of it.
+   Cheaper and far better-looking than fading a whole block. */
+.l-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+  margin-bottom: -0.06em;
+}
+.l-line > span {
+  display: block;
+  transform: translateY(104%);
+  animation: lLineUp 1000ms cubic-bezier(0.19, 1, 0.22, 1) both;
+  animation-delay: calc(var(--i, 0) * 105ms + 90ms);
+}
+@keyframes lLineUp {
+  to { transform: translateY(0); }
+}
+
+.l-hero-lead {
+  margin: 0;
+  font-size: clamp(16.5px, 15.5px + 0.3vw, 19px);
+  line-height: 1.62;
+  color: var(--l-on-dark-soft);
+  max-width: 54ch;
+  animation: lFadeUp 900ms cubic-bezier(0.22, 1, 0.36, 1) both 480ms;
+}
+@keyframes lFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.l-hero-eyebrow {
+  animation: lFadeUp 800ms cubic-bezier(0.22, 1, 0.36, 1) both 60ms;
+}
+.l-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  animation: lFadeUp 900ms cubic-bezier(0.22, 1, 0.36, 1) both 620ms;
+}
+
+/* The three guarantees under the CTAs. */
+.l-assurances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding: 0;
+  margin: 4px 0 0;
+  list-style: none;
+  animation: lFadeUp 900ms cubic-bezier(0.22, 1, 0.36, 1) both 760ms;
+}
+.l-assurances li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--l-on-dark-muted);
+}
+.l-tick {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--l-safe-dim);
+  color: var(--l-safe);
+  display: inline-grid;
+  place-items: center;
+  font-size: 9px;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   7. The hero visual — a self-playing simulation
+   A mock inbox where a lure lands, three tells are called out one at a time,
+   and the message resolves to "reported". No JS: every element runs an
+   animation of --l-demo, so the schedule is just keyframe percentages and the
+   whole thing is one clock. Purely decorative — the DOM is aria-hidden and the
+   same information is stated in prose beside it.
+   ========================================================================== */
+
+.l-demo {
+  position: relative;
+  perspective: 1400px;
+}
+
+/* The bloom that sits behind the device. */
+.l-demo::before {
+  content: '';
+  position: absolute;
+  inset: 8% 4%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109, 120, 240, 0.42), transparent 66%);
+  filter: blur(50px);
+  z-index: 0;
+  animation: lBreathe 7s ease-in-out infinite;
+}
+@keyframes lBreathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.94); }
+  50%      { opacity: 0.95; transform: scale(1.06); }
+}
+
+.l-device {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--l-r-xl);
+  background: linear-gradient(168deg, rgba(30, 33, 46, 0.96), rgba(14, 15, 22, 0.97));
+  border: 1px solid var(--l-line-dark-hi);
+  box-shadow: var(--l-sh-lg), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  animation: lFloat 9s ease-in-out infinite, lFadeUp 1000ms cubic-bezier(0.22, 1, 0.36, 1) both 340ms;
+}
+@keyframes lFloat {
+  0%, 100% { transform: translateY(0) rotateX(0deg) rotateY(0deg); }
+  50%      { transform: translateY(-12px) rotateX(1.2deg) rotateY(-1.6deg); }
+}
+
+/* Window chrome. */
+.l-device-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--l-line-dark);
+  background: rgba(255, 255, 255, 0.03);
+}
+.l-lights {
+  display: inline-flex;
+  gap: 6px;
+}
+.l-lights i {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.l-device-title {
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--l-on-dark-muted);
+}
+.l-device-live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--l-on-dark-muted);
+}
+
+.l-device-body {
+  padding: 18px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 396px;
+}
+
+/* --- The message ---------------------------------------------------------- */
+.l-mail {
+  position: relative;
+  border-radius: var(--l-r-md);
+  border: 1px solid var(--l-line-dark);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: lMailIn var(--l-demo) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes lMailIn {
+  0%   { opacity: 0; transform: translateX(26px); border-color: var(--l-line-dark); }
+  6%   { opacity: 1; transform: none; }
+  22%  { border-color: var(--l-alert); }
+  84%  { border-color: var(--l-safe); }
+  95%  { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateX(-18px); }
+}
+
+/* The scan sweep that runs down the message before the tells appear. */
+.l-mail::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 46%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, transparent, rgba(109, 120, 240, 0.22), transparent);
+  pointer-events: none;
+  opacity: 0;
+  animation: lScan var(--l-demo) linear infinite;
+}
+@keyframes lScan {
+  0%, 8%   { opacity: 0; transform: translateY(-100%); }
+  9%       { opacity: 1; }
+  20%      { opacity: 1; transform: translateY(220%); }
+  21%, 100% { opacity: 0; transform: translateY(220%); }
+}
+
+.l-mail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+.l-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(150deg, #566, #344);
+}
+.l-mail-from {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.l-mail-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--l-on-dark);
+}
+.l-mail-addr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--l-on-dark-muted);
+  word-break: break-all;
+}
+/* The lookalike character is underlined in alert once the scan reaches it. */
+.l-swap {
+  color: var(--l-alert);
+  position: relative;
+  animation: lSwap var(--l-demo) steps(1, end) infinite;
+}
+@keyframes lSwap {
+  0%, 23%  { color: var(--l-on-dark-muted); background: transparent; }
+  24%, 100% { color: var(--l-alert); background: var(--l-alert-dim); }
+}
+.l-mail-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--l-on-dark-muted);
+  flex: none;
+}
+.l-mail-subject {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--l-on-dark);
+  letter-spacing: -0.01em;
+}
+.l-mail-preview {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--l-on-dark-muted);
+}
+.l-mail-link {
+  color: var(--l-brand-lift);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-style: dotted;
+}
+
+/* --- The tells ------------------------------------------------------------
+   Three chips, scheduled at 26% / 36% / 46% of the clock. */
+.l-tells {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.l-tell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: var(--l-r-sm);
+  background: var(--l-alert-dim);
+  border: 1px solid rgba(255, 138, 114, 0.26);
+  font-size: 12.5px;
+  color: #ffbcab;
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  animation: var(--l-demo) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* Three keyframe sets rather than one set plus an `animation-delay`, because a
+   delay shifts the WHOLE timeline: the tells would then also leave one at a
+   time, punching a hole in the middle of the stack while the other two are
+   still up. Staggering only the entrance percentages means they arrive one by
+   one — which is the point, you are being shown the tells in order — and then
+   leave together with the rest of the message. */
+.l-tell:nth-child(1) { animation-name: lTell1; }
+.l-tell:nth-child(2) { animation-name: lTell2; }
+.l-tell:nth-child(3) { animation-name: lTell3; }
+
+@keyframes lTell1 {
+  0%, 26%   { opacity: 0; transform: translateY(8px) scale(0.97); }
+  31%, 90%  { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes lTell2 {
+  0%, 34%   { opacity: 0; transform: translateY(8px) scale(0.97); }
+  39%, 90%  { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes lTell3 {
+  0%, 42%   { opacity: 0; transform: translateY(8px) scale(0.97); }
+  47%, 90%  { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+.l-tell-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 138, 114, 0.22);
+  color: var(--l-alert);
+  font-size: 10px;
+  line-height: 1;
+}
+.l-tell b {
+  font-weight: 500;
+  color: #ffd9d0;
+}
+
+/* --- The verdict ---------------------------------------------------------- */
+.l-verdict {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: var(--l-r-md);
+  background: var(--l-safe-dim);
+  border: 1px solid rgba(61, 220, 151, 0.28);
+  opacity: 0;
+  transform: translateY(10px);
+  animation: lVerdictIn var(--l-demo) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes lVerdictIn {
+  0%, 62%  { opacity: 0; transform: translateY(10px); }
+  70%      { opacity: 1; transform: none; }
+  92%      { opacity: 1; transform: none; }
+  98%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+.l-verdict-ring {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  transform: rotate(-90deg);
+}
+.l-verdict-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.l-verdict-ring .l-ring-track {
+  stroke: rgba(61, 220, 151, 0.2);
+}
+.l-verdict-ring .l-ring-fill {
+  stroke: var(--l-safe);
+  stroke-dasharray: 82;
+  stroke-dashoffset: 82;
+  animation: lRing var(--l-demo) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes lRing {
+  0%, 64%  { stroke-dashoffset: 82; }
+  76%, 100% { stroke-dashoffset: 0; }
+}
+.l-verdict-ring .l-ring-tick {
+  stroke: var(--l-safe);
+  stroke-dasharray: 18;
+  stroke-dashoffset: 18;
+  /* The svg is rotated -90deg so the ring starts at twelve o'clock; the tick
+     has to be turned back or it draws on its side. */
+  transform: rotate(90deg);
+  transform-origin: 15px 15px;
+  animation: lTick var(--l-demo) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes lTick {
+  0%, 70%  { stroke-dashoffset: 18; }
+  80%, 100% { stroke-dashoffset: 0; }
+}
+.l-verdict-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.l-verdict-text strong {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #b6f2d7;
+}
+.l-verdict-text span {
+  font-size: 11.5px;
+  color: rgba(182, 242, 215, 0.72);
+}
+
+/* The floating counter chip pinned to the device corner. */
+.l-chip-float {
+  position: absolute;
+  right: -10px;
+  bottom: -20px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 14px;
+  border-radius: 999px;
+  background: rgba(18, 20, 29, 0.86);
+  border: 1px solid var(--l-line-dark-hi);
+  box-shadow: var(--l-sh-lg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 12.5px;
+  color: var(--l-on-dark);
+  animation: lFloat 9s ease-in-out 1.4s infinite, lFadeUp 900ms cubic-bezier(0.22, 1, 0.36, 1) both 900ms;
+}
+@media (max-width: 559px) {
+  .l-chip-float {
+    right: 50%;
+    transform: translateX(50%);
+    bottom: -22px;
+  }
+}
+
+/* ==========================================================================
+   8. Marquee — the lure patterns
+   Two rows travelling in opposite directions, edge-masked so they emerge from
+   nothing. The track is duplicated and the copy is aria-hidden, so the loop is
+   seamless without reading twice to a screen reader.
+   ========================================================================== */
+
+.l-marquee {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* Load-bearing. The track is `width: max-content` — several thousand pixels
+     of it — and the mask below only fades pixels, it does not clip layout. */
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+.l-marquee-row {
+  display: flex;
+  width: max-content;
+  /* No gap: the row holds the track twice and travels exactly -50%, so the two
+     copies have to sit flush. The spacing between items is the track's own gap
+     plus its trailing padding. */
+  animation: lMarquee 46s linear infinite;
+}
+.l-marquee-row--rev {
+  animation-direction: reverse;
+  animation-duration: 54s;
+}
+.l-marquee:hover .l-marquee-row {
+  animation-play-state: paused;
+}
+@keyframes lMarquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.l-marquee-track {
+  display: flex;
+  gap: 14px;
+  padding-right: 14px;
+}
+
+.l-lure {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 17px;
+  border-radius: 999px;
+  border: 1px solid var(--l-line);
+  background: var(--l-surface-raised);
+  box-shadow: var(--l-sh-sm);
+  white-space: nowrap;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 260ms ease, border-color 260ms ease;
+}
+.l-lure:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--l-sh-md);
+  border-color: rgba(255, 138, 114, 0.5);
+}
+.l-lure-subject {
+  font-size: 14px;
+  color: var(--l-body);
+}
+.l-lure-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #fbeeea;
+  color: #a13a2a;
+}
+.l-lure-tag::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+
+/* ==========================================================================
+   9. Cards, bento and the cursor spotlight
+   ========================================================================== */
+
+.l-card {
+  position: relative;
+  border-radius: var(--l-r-lg);
+  background: var(--l-surface-raised);
+  border: 1px solid var(--l-line);
+  box-shadow: var(--l-sh-sm);
+  overflow: hidden;
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 380ms ease, border-color 380ms ease;
+}
+.l-card--lift:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--l-sh-lg);
+  border-color: #dcdcd6;
+}
+
+/* A gradient hairline drawn with the two-mask trick, so the border itself is
+   the gradient rather than a box behind it. */
+.l-card--edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--l-gradient);
+  opacity: 0;
+  transition: opacity 380ms ease;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+}
+.l-card--edge:hover::before {
+  opacity: 1;
+}
+
+/* Cursor spotlight. --mx/--my are written straight to the node on pointermove,
+   so tracking the cursor costs no React render. */
+.l-spot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 340ms ease;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%), rgba(109, 120, 240, 0.13), transparent 62%);
+}
+.l-spot:hover::after {
+  opacity: 1;
+}
+.l-section--dark .l-spot::after {
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%), rgba(155, 108, 246, 0.2), transparent 62%);
+}
+
+/* --- The bento ------------------------------------------------------------ */
+.l-bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@media (min-width: 700px) {
+  .l-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .l-bento > :first-child {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 1024px) {
+  /* The wide cell keeps its two-column span and becomes copy | art inside it,
+     so the row below is two equal cells with no dead track. */
+  .l-bento > :first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    align-items: stretch;
+  }
+  .l-bento > :first-child .l-bento-cell {
+    justify-content: center;
+  }
+  /* In the wide cell the art is a right-hand panel, so its edge moves. */
+  .l-bento > :first-child .l-art {
+    margin-top: 0;
+    border-top: none;
+    border-left: 1px solid var(--l-line-soft);
+  }
+}
+
+.l-bento > article {
+  display: flex;
+  flex-direction: column;
+}
+.l-bento-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(22px, 18px + 1vw, 30px);
+}
+.l-step-num {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  background: var(--l-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.l-cell-title {
+  margin: 0;
+  font-size: clamp(19px, 18px + 0.4vw, 22px);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--l-heading);
+}
+.l-cell-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--l-muted);
+  max-width: 46ch;
+}
+
+/* Cell art. Each is a small CSS-only figure, aria-hidden, that idles rather
+   than sitting still — the difference between "illustrated" and "alive". */
+.l-art {
+  position: relative;
+  min-height: 176px;
+  margin-top: auto;
+  background:
+    radial-gradient(130% 110% at 50% 0%, rgba(109, 120, 240, 0.14), transparent 64%),
+    linear-gradient(180deg, #f3f4f9, #ebedf5);
+  border-top: 1px solid #e4e5ee;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.l-art--wide {
+  min-height: 210px;
+}
+
+/* 01 — lessons: a stack of cards that cycles, plus a filling progress bar. */
+.l-stack {
+  position: relative;
+  width: min(268px, 80%);
+  height: 148px;
+}
+.l-stack i {
+  position: absolute;
+  inset: 0 0 28px 0;
+  border-radius: var(--l-r-sm);
+  background: var(--l-surface-raised);
+  border: 1px solid var(--l-line);
+  box-shadow: var(--l-sh-sm);
+  animation: lStack 7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: calc(var(--s) * -2.33s);
+}
+@keyframes lStack {
+  0%   { transform: translateY(18px) scale(0.9); opacity: 0; }
+  14%  { transform: translateY(12px) scale(0.94); opacity: 1; }
+  38%  { transform: translateY(6px) scale(0.97); opacity: 1; }
+  66%  { transform: none; opacity: 1; }
+  92%  { transform: translateY(-10px) scale(1.02); opacity: 0; }
+  100% { transform: translateY(-10px) scale(1.02); opacity: 0; }
+}
+/* The accent chip that reads as a lesson's category. */
+.l-stack i::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 15px;
+  width: 36px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--l-gradient);
+  opacity: 0.6;
+}
+/* Three ruled lines, drawn as three solid-colour background layers rather than
+   three more elements. */
+.l-stack i::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  top: 36px;
+  height: 40px;
+  background-image:
+    linear-gradient(var(--l-line) 0 0),
+    linear-gradient(var(--l-line) 0 0),
+    linear-gradient(var(--l-line-soft) 0 0);
+  background-size: 100% 6px, 84% 6px, 58% 6px;
+  background-position: 0 0, 0 15px, 0 30px;
+  background-repeat: no-repeat;
+}
+.l-stack-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--l-line-soft);
+  overflow: hidden;
+}
+.l-stack-bar span {
+  display: block;
+  height: 100%;
+  width: 30%;
+  border-radius: 999px;
+  background: var(--l-gradient);
+  animation: lFill 7s cubic-bezier(0.5, 0, 0.2, 1) infinite;
+}
+@keyframes lFill {
+  0%   { width: 8%; }
+  70%  { width: 92%; }
+  100% { width: 92%; }
+}
+
+/* 02 — the unannounced message: an envelope with radiating rings. */
+.l-envelope {
+  position: relative;
+  width: 76px;
+  height: 54px;
+  border-radius: 8px;
+  background: var(--l-surface-raised);
+  border: 1px solid var(--l-line);
+  box-shadow: var(--l-sh-md);
+  animation: lNudge 4.6s ease-in-out infinite;
+}
+.l-envelope::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, transparent 48%, var(--l-line-soft) 48.6%, transparent 50%);
+}
+.l-envelope::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  height: 55%;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(160deg, rgba(109, 120, 240, 0.16), rgba(155, 108, 246, 0.1));
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+@keyframes lNudge {
+  0%, 72%, 100% { transform: rotate(0deg); }
+  78%           { transform: rotate(-3.5deg); }
+  84%           { transform: rotate(3deg); }
+  90%           { transform: rotate(-1.5deg); }
+}
+.l-ping {
+  position: absolute;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 120, 240, 0.42);
+  animation: lPing 3.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: calc(var(--p) * 1.13s);
+}
+@keyframes lPing {
+  0%   { transform: scale(0.6); opacity: 0.85; }
+  80%  { transform: scale(2.5); opacity: 0; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* 03 — disclosure: a card that slides up over the lure and stays. */
+.l-reveal-art {
+  position: relative;
+  width: min(240px, 80%);
+  height: 128px;
+}
+.l-reveal-back,
+.l-reveal-front {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--l-r-sm);
+  border: 1px solid var(--l-line);
+  background: var(--l-surface-raised);
+  box-shadow: var(--l-sh-sm);
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.l-reveal-back {
+  color: #a13a2a;
+  background: #fdf4f1;
+  border-color: rgba(161, 58, 42, 0.2);
+}
+.l-reveal-front {
+  color: #16171a;
+  border-color: rgba(63, 75, 189, 0.28);
+  background: linear-gradient(160deg, #fff, #f2f3fd);
+  transform: translateY(100%);
+  animation: lRevealUp 5.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes lRevealUp {
+  0%, 22%   { transform: translateY(100%); }
+  40%, 88%  { transform: translateY(0); }
+  100%      { transform: translateY(100%); }
+}
+.l-reveal-front strong {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+/* ==========================================================================
+   10. The ledger — what is recorded, what never is
+   ========================================================================== */
+
+.l-ledger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@media (min-width: 860px) {
+  .l-ledger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+.l-ledger-col {
+  position: relative;
+  border-radius: var(--l-r-lg);
+  border: 1px solid var(--l-line-dark);
+  background: rgba(255, 255, 255, 0.028);
+  padding: clamp(22px, 18px + 1vw, 30px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+.l-ledger-col h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--l-on-dark);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.l-ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.l-ledger-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--l-on-dark-soft);
+}
+.l-mark-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+  margin-top: 1px;
+}
+.l-mark-icon--yes { background: var(--l-safe-dim); color: var(--l-safe); }
+.l-mark-icon--no  { background: var(--l-alert-dim); color: var(--l-alert); }
+
+/* The "never" column strikes each line through as it arrives — the strike is a
+   drawn rule rather than text-decoration so it can animate. */
+.l-strike {
+  position: relative;
+  color: var(--l-on-dark-soft);
+}
+.l-strike::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 52%;
+  height: 1px;
+  width: 0;
+  background: rgba(255, 138, 114, 0.75);
+  transition: width 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--d, 0ms);
+}
+[data-revealed] .l-strike::after {
+  width: 100%;
+}
+
+/* ==========================================================================
+   11. Counters
+   ========================================================================== */
+
+.l-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--l-line-dark);
+  border: 1px solid var(--l-line-dark);
+  border-radius: var(--l-r-lg);
+  overflow: hidden;
+}
+.l-stat {
+  background: var(--l-ink);
+  padding: clamp(20px, 16px + 1vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.l-stat-value {
+  font-size: clamp(30px, 26px + 1.2vw, 40px);
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  background: var(--l-gradient-bright);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.l-stat-label {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--l-on-dark-muted);
+}
+
+/* ==========================================================================
+   12. The conversion card, the admin band, the closing CTA, the footer
+   ========================================================================== */
+
+.l-cta-card {
+  position: relative;
+  border-radius: var(--l-r-xl);
+  padding: clamp(28px, 22px + 2vw, 48px);
+  background: linear-gradient(165deg, #ffffff, #f6f6fa);
+  border: 1px solid var(--l-line);
+  box-shadow: var(--l-sh-md);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: flex-start;
+  overflow: hidden;
+}
+.l-cta-card::after {
+  content: '';
+  position: absolute;
+  right: -14%;
+  top: -60%;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--l-gradient-soft);
+  filter: blur(46px);
+  pointer-events: none;
+}
+.l-cta-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The load-bearing promise, given the accent wash it had in Civic. */
+.l-promise {
+  display: flex;
+  gap: 13px;
+  padding: 16px 18px;
+  border-radius: var(--l-r-md);
+  background: rgba(63, 75, 189, 0.06);
+  border: 1px solid rgba(63, 75, 189, 0.13);
+  color: #24284a;
+  font-size: 14.5px;
+  line-height: 1.6;
+  max-width: 64ch;
+}
+.l-promise strong {
+  font-weight: 600;
+}
+.l-promise-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--l-brand);
+  flex: none;
+  margin-top: 8px;
+}
+
+.l-admin {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  border-radius: var(--l-r-lg);
+  border: 1px dashed #d9d9d3;
+  background: var(--l-surface-raised);
+  padding: clamp(24px, 20px + 1vw, 34px);
+}
+@media (min-width: 860px) {
+  .l-admin {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 36px;
+  }
+}
+
+.l-close {
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.l-close .l-h2 {
+  max-width: 18ch;
+}
+
+.l-footer {
+  background: var(--l-ink);
+  color: var(--l-on-dark-muted);
+  padding-block: clamp(44px, 36px + 2vw, 68px) 32px;
+  border-top: 1px solid var(--l-line-dark);
+}
+.l-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--l-line-dark);
+}
+@media (min-width: 760px) {
+  .l-footer-grid {
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+    gap: 40px;
+  }
+}
+.l-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.l-footer-col h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--l-on-dark-muted);
+}
+.l-footer-col a {
+  color: var(--l-on-dark-soft);
+  text-decoration: none;
+  font-size: 14px;
+  width: fit-content;
+  transition: color 200ms ease;
+}
+.l-footer-col a:hover {
+  color: var(--l-on-dark);
+}
+.l-footer-note {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--l-on-dark-muted);
+  max-width: 44ch;
+  margin: 0;
+}
+.l-footer-base {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 22px;
+  font-size: 12.5px;
+}
+.l-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   13. Reduced motion — MANDATORY, and absolute.
+   Everything above resolves to its final, most-informative frame: the demo
+   shows the tells AND the verdict at once, the marquee stops, reveals are
+   simply visible. Nothing is hidden by a stopped animation.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .l-root *,
+  .l-root *::before,
+  .l-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Elements whose resting state is "invisible until animated" have to be put
+     back by hand — a cancelled animation would otherwise leave them hidden. */
+  .l-root [data-reveal],
+  .l-line > span,
+  .l-hero-lead,
+  .l-hero-eyebrow,
+  .l-cta-row,
+  .l-assurances,
+  .l-device,
+  .l-chip-float,
+  .l-mail,
+  .l-tell,
+  .l-verdict,
+  .l-reveal-front,
+  .l-stack i {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .l-verdict-ring .l-ring-fill {
+    stroke-dashoffset: 0 !important;
+  }
+  .l-mail::after,
+  .l-ping,
+  .l-dot::after,
+  .l-demo::before {
+    display: none !important;
+  }
+  .l-verdict-ring .l-ring-tick {
+    stroke-dashoffset: 0 !important;
+  }
+  .l-strike::after {
+    width: 100% !important;
+  }
+  .l-stack-bar span {
+    width: 92% !important;
+  }
+  .l-grad-text,
+  .l-stat-value,
+  .l-step-num {
+    background-position: 0 50% !important;
+  }
+}
+
+/* A viewer who cannot render backdrop-filter gets a solid ground rather than
+   an unreadable translucent one. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .l-nav[data-stuck] { background: rgba(10, 11, 16, 0.96); }
+  .l-device { background: #14161f; }
+  .l-ledger-col { background: #12141d; }
+  .l-chip-float { background: #12141d; }
+}
