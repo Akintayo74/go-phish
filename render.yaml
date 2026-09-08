@@ -171,7 +171,7 @@ services:
       # GUARDRAIL: generic and fictional. Neither may ever name a real
       # organization (IMPLEMENTATION_PLAN.md §1, checklist §2).
       - key: SIM_BRAND_NAME
-        value: ACME Corp — Staff Portal
+        value: Meridian Trust Bank — Staff Portal
       # DASHBOARD-MANAGED (`sync: false`) for the same reason as MAIL_PROVIDER: a
       # committed value here reverts your real sender back to the non-routable
       # `.invalid` placeholder on every blueprint sync, which real relays reject.

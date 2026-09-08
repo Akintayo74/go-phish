@@ -32,7 +32,7 @@ console/traces, response bodies + headers, and the persisted store) and
 
 - ✅ **No real-brand impersonation.** The decoy sign-in and the lure email use a
   generic, fictional brand placeholder (`SIM_BRAND_NAME`, default
-  `ACME Corp — Staff Portal`) and a fictional from-address
+  `Meridian Trust Bank — Staff Portal`) and a fictional from-address
   (`MAIL_FROM`, `…@catsim.invalid`). *Tests:* `emailTemplates`, `sim.routes`.
   🔧 Confirm your configured `SIM_BRAND_NAME` / `MAIL_FROM` do not name a real org.
 - ✅ **Non-punitive framing** on the disclosure and enrollment email. *Tests:*

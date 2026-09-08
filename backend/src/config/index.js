@@ -57,7 +57,7 @@ const config = {
   // Phase 4 — simulated landing page. A GENERIC, FICTIONAL brand shown on the
   // dummy login page. It must never impersonate a real organization/brand; the
   // default is an obvious placeholder. Override per deployment if desired.
-  simBrandName: process.env.SIM_BRAND_NAME || 'ACME Corp — Staff Portal',
+  simBrandName: process.env.SIM_BRAND_NAME || 'Meridian Trust Bank — Staff Portal',
   // Where the disclosure page's "go to training" link points. Phase 6 wires
   // this to the public CAT learning site (the frontend hash route); override
   // per deployment to an absolute URL if the CAT site is served elsewhere.
