@@ -336,7 +336,19 @@ button {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  min-height: 100vh;
+  /* The rail is fixed to the viewport, not scrolled with the page: it sticks to
+     the top and owns the full viewport height, so the content pane beside it
+     scrolls under a stationary rail. `align-self: flex-start` opts the item out
+     of the flex container's `stretch`, which would otherwise force its height to
+     the (taller) content and defeat the sticky. Its own overflow keeps a long
+     nav reachable when the viewport is short. Below the breakpoint this becomes
+     the off-canvas drawer (`position: fixed`) in the media query below. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Top bar and drawer chrome exist only below the breakpoint. */
