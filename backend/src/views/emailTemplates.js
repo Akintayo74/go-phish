@@ -26,14 +26,19 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// A believable-but-plainly-fictional "account action required" lure. Realism is
-// intentional (it is a simulation), but the framing stays generic so it reads
-// as a training exercise once disclosed and never as a real brand's mail.
+// A believable-but-plainly-fictional internal online-banking security notice.
+// It is styled to resemble the kind of "verify your account" mail a staff
+// banking portal would send (branded header bar, reference line, security
+// footer) so the exercise is realistic — but the brand is a wholly FICTIONAL
+// placeholder (guardrail #1: no real-brand impersonation) and there is still
+// no form, no input and no attachment: the only action is the tracked click,
+// which lands on the Phase 4 decoy page.
 function renderSimulationEmail({ brandName, trackingUrl, pixelUrl } = {}) {
-  const brand = escapeHtml(brandName || 'Staff Portal');
+  const brandPlain = brandName || 'Staff Portal';
+  const brand = escapeHtml(brandPlain);
   const url = escapeHtml(trackingUrl || '#');
 
-  const subject = `[${brandName || 'Staff Portal'}] Action required: verify your account`;
+  const subject = `[${brandPlain}] Action required: verify your online banking access`;
 
   const pixel = pixelUrl
     ? `<img src="${escapeHtml(pixelUrl)}" width="1" height="1" alt="" style="display:none" />`
@@ -41,26 +46,43 @@ function renderSimulationEmail({ brandName, trackingUrl, pixelUrl } = {}) {
 
   const html = `<!doctype html>
 <html>
-  <body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;background:#f4f5f7;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e4e8;border-radius:8px;">
+  <body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;background:#eef1f5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #d8dde4;border-radius:8px;overflow:hidden;">
+      <tr>
+        <td style="background:#0b2545;padding:18px 28px;">
+          <span style="color:#ffffff;font-size:17px;font-weight:bold;letter-spacing:0.3px;">${brand}</span>
+          <span style="color:#9fb3c8;font-size:11px;display:block;margin-top:2px;">Online Banking &middot; Secure Message</span>
+        </td>
+      </tr>
       <tr>
         <td style="padding:24px 28px;">
-          <h1 style="font-size:18px;margin:0 0 16px;">${brand}</h1>
-          <p style="font-size:14px;line-height:1.5;margin:0 0 14px;">Hello,</p>
+          <p style="font-size:12px;line-height:1.5;color:#66707a;margin:0 0 16px;">Reference: ONB-4471-VERIFY</p>
+          <p style="font-size:14px;line-height:1.5;margin:0 0 14px;">Dear Colleague,</p>
           <p style="font-size:14px;line-height:1.5;margin:0 0 14px;">
-            We detected a sign-in to your account that needs to be confirmed.
-            To keep your access active, please verify your account within
-            24&nbsp;hours.
+            As part of a routine security review, we detected a sign-in to your
+            online banking profile that could not be automatically verified. To
+            keep your access active and protect your account, please confirm
+            your profile within <strong>24&nbsp;hours</strong>.
           </p>
           <p style="margin:24px 0;">
-            <a href="${url}" style="background:#2b6cb0;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;display:inline-block;">Verify my account</a>
+            <a href="${url}" style="background:#0b6b3a;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:14px;font-weight:bold;display:inline-block;">Verify my account</a>
           </p>
           <p style="font-size:12px;line-height:1.5;color:#66707a;margin:0 0 6px;">
             If the button does not work, copy and paste this link into your browser:
           </p>
-          <p style="font-size:12px;line-height:1.5;color:#66707a;margin:0 0 16px;word-break:break-all;">${url}</p>
-          <p style="font-size:12px;line-height:1.5;color:#98a2ad;margin:0;">
-            This is an automated message from the ${brand}.
+          <p style="font-size:12px;line-height:1.5;color:#66707a;margin:0 0 4px;word-break:break-all;">${url}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="background:#f4f6f9;border-top:1px solid #e2e4e8;padding:16px 28px;">
+          <p style="font-size:11px;line-height:1.5;color:#8a95a1;margin:0 0 6px;">
+            This is an automated security notification from the ${brand}. Please do
+            not reply to this message.
+          </p>
+          <p style="font-size:11px;line-height:1.5;color:#8a95a1;margin:0;">
+            ${brand} will never ask you to share your password, PIN or one-time
+            code by email. If you did not expect this message, contact your
+            security team.
           </p>
         </td>
       </tr>
@@ -70,16 +92,22 @@ function renderSimulationEmail({ brandName, trackingUrl, pixelUrl } = {}) {
 </html>`;
 
   const text = [
-    `${brandName || 'Staff Portal'}`,
+    `${brandPlain}`,
+    'Online Banking - Secure Message',
     '',
-    'Hello,',
+    'Reference: ONB-4471-VERIFY',
     '',
-    'We detected a sign-in to your account that needs to be confirmed. To keep',
-    'your access active, please verify your account within 24 hours:',
+    'Dear Colleague,',
+    '',
+    'As part of a routine security review, we detected a sign-in to your online',
+    'banking profile that could not be automatically verified. To keep your',
+    'access active, please confirm your profile within 24 hours:',
     '',
     trackingUrl || '',
     '',
-    `This is an automated message from the ${brandName || 'Staff Portal'}.`,
+    `This is an automated security notification from the ${brandPlain}. Please do`,
+    'not reply to this message. We will never ask you to share your password,',
+    'PIN or one-time code by email.',
   ].join('\n');
 
   return { subject, html, text };

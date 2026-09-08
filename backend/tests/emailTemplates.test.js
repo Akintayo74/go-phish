@@ -6,7 +6,7 @@
 
 const { renderSimulationEmail, renderEnrollmentEmail } = require('../src/views/emailTemplates');
 
-const BRAND = 'ACME Corp — Staff Portal';
+const BRAND = 'Meridian Trust Bank — Staff Portal';
 const TRACK = 'https://sim.example.test/t/abc123';
 const PIXEL = 'https://sim.example.test/t/abc123/pixel.gif';
 

@@ -307,6 +307,113 @@ button {
   line-height: 1.6;
 }
 
+/* --- Console shell: the nav rail and its mobile drawer ---------------------
+   One piece of markup, two shapes. From 920px the nav is the drawn persistent
+   224px rail beside the content (2a). Below it — where the rail plus a roster
+   table has nowhere to go — the same <aside> becomes an off-canvas drawer
+   opened from the console top bar, and the top bar itself (hidden on a desktop)
+   carries the wordmark and the menu button.
+
+   The closed drawer is `visibility: hidden`, not just translated off-screen:
+   that is what keeps its links and buttons out of the tab order and out of the
+   accessibility tree while it is shut, without the markup having to be
+   duplicated or conditionally rendered. The visibility change is delayed on the
+   way out so the slide still plays.
+
+   Breakpoint mirrored from layout.consoleNavMin in ui/theme.js. */
+.cs-console {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.cs-console-nav {
+  width: 224px;
+  flex: none;
+  background: var(--cs-surface-recessed);
+  border-right: 1px solid var(--cs-border-subtle);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 100vh;
+}
+
+/* Top bar and drawer chrome exist only below the breakpoint. */
+.cs-console-topbar,
+.cs-console-scrim,
+.cs-console-nav-close {
+  display: none;
+}
+
+@media (max-width: 919.98px) {
+  .cs-console-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    flex: none;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 10px var(--cs-gutter);
+    background: var(--cs-surface-recessed);
+    border-bottom: 1px solid var(--cs-border-subtle);
+  }
+
+  .cs-console-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 50;
+    width: min(280px, 84vw);
+    min-height: 0;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-right: 1px solid var(--cs-border);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s linear 240ms;
+  }
+  .cs-console-nav[data-open='true'] {
+    transform: none;
+    visibility: visible;
+    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s;
+  }
+
+  /* The scrim is the second way out of the drawer (Escape and the close button
+     being the others). It is inert until the drawer opens so it can never
+     swallow a tap on the console behind it. */
+  .cs-console-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(22, 23, 26, 0.32);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 240ms ease, visibility 0s linear 240ms;
+  }
+  .cs-console-scrim[data-open='true'] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 240ms ease, visibility 0s;
+  }
+
+  .cs-console-nav-close {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-console-nav,
+  .cs-console-scrim {
+    transition: none;
+  }
+}
+
 /* --- Console sub-panels (analytics, comparison, roster, cohort, send) ------
    These are the read-heavy areas the design descopes to "derive in-codebase
    following the tokens". They share one recessed panel treatment plus table and

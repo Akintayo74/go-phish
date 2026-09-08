@@ -148,6 +148,8 @@ export const layout = {
   library: 900,
   // The desktop lesson rail on the learning site.
   rail: 248,
+  // The console's persistent nav rail (2a).
+  consoleRail: 224,
   // The console content pane. Wide enough for a roster table, capped so a 27"
   // display does not stretch one row across 2000px.
   console: 1400,
@@ -158,6 +160,15 @@ export const layout = {
   // The breakpoint at which the learning site grows its second column. Mirrored
   // in global.css — change both together.
   desktopMin: 1024,
+  // The breakpoint at which the console's nav is a persistent rail. Below it the
+  // same markup is an off-canvas drawer opened from the console top bar: 224px
+  // of chrome plus a roster table does not fit a phone, and the handoff's
+  // "wrap the sidebar above the content" left a screenful of nav before any
+  // work. Mirrored in global.css (`.cs-console-*`) — change both together.
+  consoleNavMin: 920,
+  // The drawer's width on a phone: the rail plus its padding, held off the
+  // right edge so the content behind it stays visible as context.
+  consoleNav: 280,
   // Page gutter: the drawn 20px on a phone, 40px on a desktop.
   gutter: fluid(20, 40),
   // Vertical breathing room around a screen's content.

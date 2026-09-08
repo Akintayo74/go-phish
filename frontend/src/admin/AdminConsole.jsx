@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
 import CampaignAnalytics from './CampaignAnalytics.jsx';
 import CohortPanel from './CohortPanel.jsx';
@@ -16,9 +16,12 @@ import { Wordmark, Card, Button, Pill, StatusDot, Field, Input, QuietNote } from
 // role gating. The gating here is presentation: the authorization itself lives
 // on the routes (see consent.authz.guardrail).
 //
-// Below 920px the console is explicitly descoped by the handoff; the shell keeps
-// working (the sidebar wraps above the content) rather than inventing a narrow
-// layout the design does not specify.
+// Below layout.consoleNavMin the handoff descopes the console, and what the
+// shell did instead — wrap the sidebar above the content — put a full screen of
+// nav and an account block between a phone and the first campaign. The same
+// markup is now an off-canvas drawer below that width, opened from a console top
+// bar: one nav in the DOM, two shapes, the switch entirely in global.css
+// (`.cs-console-*`). Nothing about the drawn desktop rail changes.
 
 const PROGRAM_ADMIN = 'program_admin';
 
@@ -307,24 +310,42 @@ function CampaignList(props) {
   );
 }
 
-// The persistent 224px sidebar (2a): wordmark, nav with one active item, and an
-// account block pinned to the bottom.
-function Sidebar({ admin, view, setView, onSignOut, counts }) {
+// The two pieces of drawer chrome. Drawn as strokes rather than glyphs so they
+// inherit `currentColor` and sit on the same 1px hairline the rest of the system
+// is built from; `aria-hidden` because the button beside them carries the name.
+function MenuIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false">
+      <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+      <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// The nav (2a): wordmark, nav with one active item, and an account block pinned
+// to the bottom. It is the persistent 224px rail from layout.consoleNavMin up
+// and the drawer the top bar opens below it — the shape is `.cs-console-nav` in
+// global.css, so this component is the same markup either way. `data-open` is
+// what the drawer's transform and visibility key off; at the rail breakpoint no
+// rule reads it.
+const NAV_ID = 'console-nav';
+
+function Sidebar({ admin, view, setView, onSignOut, counts, open, onClose, closeRef }) {
   return (
     <aside
-      style={{
-        width: 224,
-        flex: 'none',
-        background: color.surfaceRecessed,
-        borderRight: `1px solid ${color.borderSubtle}`,
-        padding: '20px 14px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 24,
-        minHeight: '100vh',
-      }}
+      id={NAV_ID}
+      className="cs-console-nav"
+      data-open={open ? 'true' : 'false'}
+      aria-label="console navigation"
     >
-      <div style={{ padding: '0 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px' }}>
         {/* Leaves the console for the public landing page. The session is not
             ended — the token stays in storage, so #/admin comes straight back. */}
         <a
@@ -335,6 +356,29 @@ function Sidebar({ admin, view, setView, onSignOut, counts }) {
         >
           <Wordmark />
         </a>
+        {/* Drawer-only (display:none at the rail breakpoint): the deliberate way
+            out, beside Escape and a tap on the scrim. */}
+        <button
+          ref={closeRef}
+          type="button"
+          className="cs-console-nav-close cs-focusable cs-press"
+          onClick={onClose}
+          aria-label="Close menu"
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 34,
+            height: 34,
+            flex: 'none',
+            background: color.surfaceRaised,
+            border: `1px solid ${color.border}`,
+            borderRadius: radius.nav,
+            color: color.textSecondary,
+            cursor: 'pointer',
+          }}
+        >
+          <CloseIcon />
+        </button>
       </div>
 
       <nav role="group" aria-label="console section" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -347,7 +391,10 @@ function Sidebar({ admin, view, setView, onSignOut, counts }) {
               type="button"
               className="cs-focusable cs-press-lg"
               aria-pressed={active}
-              onClick={() => setView(value)}
+              onClick={() => {
+                setView(value);
+                onClose();
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -403,6 +450,130 @@ function Sidebar({ admin, view, setView, onSignOut, counts }) {
   );
 }
 
+// The console top bar. `display: none` from the rail breakpoint up, so on a
+// desktop nothing about screen 2a changes; below it, this is the only chrome
+// above the work — the wordmark, the menu button, and the section you are in, so
+// a closed drawer never leaves you unsure which view is on screen.
+function ConsoleTopBar({ view, open, onToggle, buttonRef }) {
+  const label = (VIEWS.find(([value]) => value === view) || VIEWS[0])[1];
+  return (
+    <div className="cs-console-topbar">
+      <button
+        ref={buttonRef}
+        type="button"
+        className="cs-focusable cs-press"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={NAV_ID}
+        aria-label="Menu"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 38,
+          height: 38,
+          flex: 'none',
+          background: color.surfaceRaised,
+          border: `1px solid ${color.border}`,
+          borderRadius: radius.nav,
+          color: color.ink,
+          cursor: 'pointer',
+        }}
+      >
+        <MenuIcon />
+      </button>
+      <a
+        href="#/"
+        className="cs-focusable"
+        aria-label="CAT-Sim home"
+        style={{ display: 'inline-flex', textDecoration: 'none', borderRadius: radius.nav }}
+      >
+        <Wordmark />
+      </a>
+      <span aria-hidden="true" style={{ color: color.borderStrong }}>/</span>
+      <span style={{ fontSize: 14, color: color.textSecondary, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// Drawer state, plus what an overlay owes the person using it: it closes on
+// Escape, it does not let the console scroll or take focus underneath it, and
+// focus moves into it on open and back to the menu button on close. All of it is
+// scoped to `open`, which can only become true from the top bar — and the top
+// bar only exists below the breakpoint — so the desktop rail pays for none of
+// it.
+function useConsoleNav() {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef(null);
+  const closeRef = useRef(null);
+  const mainRef = useRef(null);
+  const wasOpen = useRef(false);
+
+  const close = useCallback(() => setOpen(false), []);
+  const toggle = useCallback(() => setOpen((v) => !v), []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  // Focus follows the drawer: into it on open (the close button, so the first
+  // Tab lands on the wordmark and the nav below it), back to the opener on
+  // close — but only when it was this component that closed, never on mount.
+  useEffect(() => {
+    if (open) closeRef.current?.focus();
+    else if (wasOpen.current) buttonRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
+
+  // Growing past the breakpoint turns the drawer back into the rail, and a
+  // scroll lock or a scrim that outlived it would be invisible and unclosable.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia(`(min-width: ${layout.consoleNavMin}px)`);
+    const sync = (e) => {
+      if (e.matches) setOpen(false);
+    };
+    sync(mq);
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', sync);
+      return () => mq.removeEventListener('change', sync);
+    }
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
+  }, []);
+
+  // While the drawer is over the console, the console behind it is not
+  // reachable — by tab, by pointer or by a screen reader. `inert` is the whole
+  // job in one attribute; it is set imperatively because React 18 does not pass
+  // the prop through. Never set on a desktop: `open` can only be true below the
+  // breakpoint, where the top bar exists.
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return undefined;
+    if (open) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+    return () => el.removeAttribute('inert');
+  }, [open]);
+
+  return { open, close, toggle, buttonRef, closeRef, mainRef };
+}
+
 export default function AdminConsole() {
   const [admin, setAdmin] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
@@ -411,6 +582,7 @@ export default function AdminConsole() {
   const [analyticsFor, setAnalyticsFor] = useState(null);
   const [comparisonFor, setComparisonFor] = useState(null);
   const [view, setView] = useState('campaigns');
+  const nav = useConsoleNav();
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -495,9 +667,25 @@ export default function AdminConsole() {
   return (
     <section
       aria-label="admin console"
-      style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', background: color.surface, minHeight: '100vh', border: `1px solid ${color.borderFrame}` }}
+      className="cs-console"
+      style={{ background: color.surface, minHeight: '100vh', border: `1px solid ${color.borderFrame}` }}
     >
-      <Sidebar admin={admin} view={view} setView={setView} onSignOut={signOut} counts={counts} />
+      <ConsoleTopBar view={view} open={nav.open} onToggle={nav.toggle} buttonRef={nav.buttonRef} />
+      {/* The dim behind an open drawer, and the third way out of it. It sits
+          before the drawer in source and one layer below it in the stack;
+          `display: none` at the rail breakpoint and hidden until the drawer
+          opens, so it can never intercept a click on the console. */}
+      <div className="cs-console-scrim" data-open={nav.open ? 'true' : 'false'} onClick={nav.close} aria-hidden="true" />
+      <Sidebar
+        admin={admin}
+        view={view}
+        setView={setView}
+        onSignOut={signOut}
+        counts={counts}
+        open={nav.open}
+        onClose={nav.close}
+        closeRef={nav.closeRef}
+      />
 
       {/* The console has the opposite desktop problem to the public screens: the
           pane was unbounded, so on a wide display a roster row stretched across
@@ -506,6 +694,7 @@ export default function AdminConsole() {
           sidebar; the padding grows with the viewport like every other screen's
           gutter. */}
       <div
+        ref={nav.mainRef}
         style={{
           flex: 1,
           minWidth: 0,

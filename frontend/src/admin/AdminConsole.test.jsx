@@ -344,6 +344,99 @@ describe('AdminConsole', () => {
     expect(screen.queryByRole('form', { name: 'create cohort' })).not.toBeInTheDocument();
   });
 
+  // --- The mobile nav drawer ----------------------------------------------
+  // Below layout.consoleNavMin the sidebar is an off-canvas drawer opened from
+  // the console top bar. Which of the two shapes is on screen is a media query
+  // (global.css), and Vitest runs with `css: false` — so what is tested here is
+  // the behaviour the CSS hangs off: the open/closed state, the ARIA wiring
+  // between the button and the nav, and the ways out of an open drawer.
+  async function signIn() {
+    api.login.mockResolvedValue({
+      token: 'tok',
+      admin: { email: 'admin@example.test', role: 'program_admin' },
+    });
+    api.listCampaigns.mockResolvedValue({ data: [] });
+    render(<AdminConsole />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.c' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument());
+    return screen.getByRole('button', { name: 'Menu' });
+  }
+
+  it('the menu button opens and closes the nav, and says which it did', async () => {
+    const menu = await signIn();
+    const nav = screen.getByRole('complementary', { name: 'console navigation' });
+
+    // Closed is the initial state, and the button owns the nav it controls.
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    expect(menu).toHaveAttribute('aria-controls', nav.id);
+    expect(nav).toHaveAttribute('data-open', 'false');
+
+    fireEvent.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    expect(nav).toHaveAttribute('data-open', 'true');
+    // Focus moves into the drawer, so a keyboard is not left behind it.
+    expect(screen.getByRole('button', { name: 'Close menu' })).toHaveFocus();
+
+    fireEvent.click(menu);
+    expect(nav).toHaveAttribute('data-open', 'false');
+  });
+
+  it('closes on Escape and returns focus to the menu button', async () => {
+    const menu = await signIn();
+    const nav = screen.getByRole('complementary', { name: 'console navigation' });
+
+    fireEvent.click(menu);
+    expect(nav).toHaveAttribute('data-open', 'true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(nav).toHaveAttribute('data-open', 'false');
+    expect(menu).toHaveFocus();
+  });
+
+  it('closes on the close button and on the scrim', async () => {
+    const menu = await signIn();
+    const nav = screen.getByRole('complementary', { name: 'console navigation' });
+
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByRole('button', { name: 'Close menu' }));
+    expect(nav).toHaveAttribute('data-open', 'false');
+
+    fireEvent.click(menu);
+    expect(nav).toHaveAttribute('data-open', 'true');
+    fireEvent.click(document.querySelector('.cs-console-scrim'));
+    expect(nav).toHaveAttribute('data-open', 'false');
+  });
+
+  it('picking a section switches the view and closes the drawer behind it', async () => {
+    api.listCohorts.mockResolvedValue({ data: [] });
+    api.listParticipants.mockResolvedValue({ data: [] });
+    const menu = await signIn();
+    const nav = screen.getByRole('complementary', { name: 'console navigation' });
+
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByRole('button', { name: 'Cohorts & consent' }));
+
+    await waitFor(() => expect(screen.getByTestId('cohort-panel')).toBeInTheDocument());
+    // Nothing to dismiss afterwards: the drawer is a step on the way to the
+    // section, not a thing left covering it.
+    expect(nav).toHaveAttribute('data-open', 'false');
+    // The top bar names the section you landed in while the nav is shut.
+    expect(document.querySelector('.cs-console-topbar')).toHaveTextContent('Cohorts & consent');
+  });
+
+  it('does not lock the page scroll while the nav is closed', async () => {
+    const menu = await signIn();
+    expect(document.body.style.overflow).toBe('');
+
+    fireEvent.click(menu);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    fireEvent.click(menu);
+    expect(document.body.style.overflow).toBe('');
+  });
+
   it('surfaces an invalid-credentials error', async () => {
     api.login.mockRejectedValue(Object.assign(new Error('bad'), { code: 'invalid_credentials' }));
     render(<AdminConsole />);

@@ -62,6 +62,18 @@ describe('token mirroring into global.css', () => {
   it('the desktop rail column matches layout.rail', () => {
     expect(css).toContain(`grid-template-columns: ${layout.rail}px minmax(0, 1fr);`);
   });
+
+  it('the console nav rail, drawer and breakpoint match the layout tokens', () => {
+    // The console's nav is one piece of markup in two shapes, and the sheet is
+    // the only place the switch between them is written down — so the rail
+    // width, the drawer width and the breakpoint all have to keep agreeing with
+    // the tokens the JS side reads (AdminConsole watches the same breakpoint
+    // through matchMedia).
+    expect(css).toContain(`width: ${layout.consoleRail}px;`);
+    expect(css).toContain(`width: min(${layout.consoleNav}px, 84vw);`);
+    // Below the breakpoint, exclusive of it: the rail owns consoleNavMin itself.
+    expect(css).toContain(`@media (max-width: ${layout.consoleNavMin - 0.02}px)`);
+  });
 });
 
 describe('the type scale', () => {
