@@ -147,7 +147,7 @@
   <h1>CAT-Sim — Architecture Q&amp;A</h1>
   <p class="sub">An in-depth walkthrough of the eight questions, grounded in the actual code. CAT-Sim is a consent-based phishing-simulation and cybersecurity-awareness-training platform; everything below traces a claim back to the file and mechanism that enforces it.</p>
   <div class="badges">
-    <span class="badge">Repo: akintayo74/go-phish</span>
+    <span class="badge">Project: CAT-Sim (go-phish)</span>
     <span class="badge">Express + PostgreSQL</span>
     <span class="badge">React + Vite</span>
     <span class="badge">Single-origin deploy</span>
@@ -656,7 +656,7 @@ table.boolean('opted_out').notNullable().defaultTo(false);</code></pre>
 <p>This is <strong>pseudonymisation, not anonymisation</strong>, and that's the intended design. You <em>can</em> go address → digest (that's how matching, and the <code>POST /api/participants/lookup</code> endpoint for handling an opt-out request, work), but you <em>cannot</em> go digest → address. An attacker who steals the database gets a table of opaque HMAC digests with no key, so they can't recover who the participants are; and even a legitimate operator can't produce a roster of real addresses out of the stored data. The address only ever exists in memory for the moment of a send. That is the whole point of guardrail #6 (data minimisation) — the system is built <em>not</em> to be able to answer "which of my staff is at address X" from its own storage.</p>
 
 <footer class="doc">
-  <p>Every code excerpt above is drawn verbatim (lightly trimmed for length) from the <code>akintayo74/go-phish</code> repository. Named guardrail tests referenced: <code>consent.guardrail</code>, <code>delivery.guardrail</code>, <code>enrollment.guardrail</code>, <code>sim.form.guardrail</code>, <code>schema.interactions.guardrail</code>, <code>logging</code>, <code>quiz.answerkey.guardrail</code>, <code>analytics.guardrail</code>, <code>pause.rollback.guardrail</code>, and <code>system.credential.audit</code>.</p>
+  <p>Every code excerpt above is drawn verbatim (lightly trimmed for length) from the CAT-Sim (<code>go-phish</code>) repository. Named guardrail tests referenced: <code>consent.guardrail</code>, <code>delivery.guardrail</code>, <code>enrollment.guardrail</code>, <code>sim.form.guardrail</code>, <code>schema.interactions.guardrail</code>, <code>logging</code>, <code>quiz.answerkey.guardrail</code>, <code>analytics.guardrail</code>, <code>pause.rollback.guardrail</code>, and <code>system.credential.audit</code>.</p>
 </footer>
 
 </div>
