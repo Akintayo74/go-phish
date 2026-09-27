@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAT-Sim — Architecture Q&amp;A</title>
+<style>
+  /* Light mode only — no prefers-color-scheme override, by request. */
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --fg: #1f2430;
+    --muted: #5b6472;
+    --accent: #2563eb;
+    --accent-soft: #eff4ff;
+    --border: #e2e6ee;
+    --code-bg: #f4f6fa;
+    --table-head: #f7f9fc;
+    --table-stripe: #fbfcfe;
+    --warn-bg: #fff8ec;
+    --warn-border: #f0c37a;
+    --danger-bg: #fdf1f1;
+    --danger-border: #eabcbc;
+    --ok: #17803d;
+    --ok-soft: #ecf7f0;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.62;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+  header.doc {
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+  header.doc h1 { font-size: 2.2rem; margin: 0 0 .3rem; letter-spacing: -.02em; }
+  header.doc .sub { color: var(--muted); font-style: italic; margin: 0 0 1rem; max-width: 70ch; }
+  .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .badge {
+    font-size: .8rem; font-weight: 600; padding: .25rem .7rem; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--border);
+  }
+  h2 {
+    font-size: 1.5rem; margin: 2.6rem 0 .8rem;
+    letter-spacing: -.01em; border-top: 1px solid var(--border); padding-top: 1.8rem;
+  }
+  h2 .qnum {
+    display: inline-block; min-width: 1.9rem; height: 1.9rem; line-height: 1.9rem;
+    text-align: center; border-radius: 8px; background: var(--accent); color: #fff;
+    font-size: 1rem; margin-right: .6rem; vertical-align: middle;
+  }
+  h3 { font-size: 1.15rem; margin: 1.8rem 0 .6rem; }
+  h4 { font-size: 1rem; margin: 1.3rem 0 .4rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .82rem; }
+  p { margin: .7rem 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: .88em;
+    background: var(--code-bg); padding: .12em .4em; border-radius: 5px;
+    border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: .84rem; line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; border: none; }
+  .filepath {
+    display: inline-block; font-family: var(--mono); font-size: .78rem; color: var(--muted);
+    background: var(--table-head); border: 1px solid var(--border); border-radius: 6px;
+    padding: .1rem .5rem; margin-bottom: .35rem;
+  }
+  ul, ol { padding-left: 1.4rem; }
+  li { margin: .35rem 0; }
+  table {
+    border-collapse: collapse; width: 100%; margin: 1.1rem 0; font-size: .9rem;
+    display: block; overflow-x: auto;
+  }
+  th, td { border: 1px solid var(--border); padding: .55rem .7rem; text-align: left; vertical-align: top; }
+  th { background: var(--table-head); font-weight: 650; }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  blockquote {
+    margin: 1.2rem 0; padding: .8rem 1.1rem; border-left: 4px solid var(--accent);
+    background: var(--accent-soft); border-radius: 0 8px 8px 0;
+  }
+  blockquote p { margin: .3rem 0; }
+  .callout {
+    margin: 1.2rem 0; padding: .9rem 1.1rem; border: 1px solid var(--warn-border);
+    background: var(--warn-bg); border-radius: 8px;
+  }
+  .callout.danger { border-color: var(--danger-border); background: var(--danger-bg); }
+  .callout.ok { border-color: #bfe3cc; background: var(--ok-soft); }
+  .callout strong.label { display: block; margin-bottom: .25rem; }
+  nav.toc {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.3rem; margin: 1.5rem 0 2rem;
+  }
+  nav.toc strong { display: block; margin-bottom: .5rem; font-size: .95rem; }
+  nav.toc ol { margin: 0; padding-left: 1.2rem; }
+  nav.toc li { margin: .35rem 0; }
+  nav.toc a { font-size: .92rem; }
+  footer.doc { margin-top: 3rem; padding-top: 1.4rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .85rem; }
+  .tick { color: var(--ok); font-weight: 700; }
+  .cross { color: #b42318; font-weight: 700; }
+  .lead {
+    font-size: 1.02rem; background: var(--accent-soft); border: 1px solid var(--border);
+    border-radius: 10px; padding: .8rem 1.1rem; margin: .8rem 0 1.2rem;
+  }
+  .lead strong { color: var(--accent); }
+  figure { margin: 1.4rem 0; }
+  figure svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  figcaption { text-align: center; color: var(--muted); font-size: .82rem; font-style: italic; margin-top: .5rem; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  .split > div { border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1.1rem; }
+  .split h4 { margin-top: 0; }
+  .split.fe > div:first-child { border-top: 3px solid #7c3aed; }
+  .split.fe > div:last-child { border-top: 3px solid var(--accent); }
+  .steps { counter-reset: step; list-style: none; padding-left: 0; }
+  .steps > li {
+    position: relative; padding-left: 2.6rem; margin: .9rem 0;
+  }
+  .steps > li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 0;
+    width: 1.9rem; height: 1.9rem; line-height: 1.9rem; text-align: center;
+    background: var(--accent); color: #fff; border-radius: 50%; font-size: .85rem; font-weight: 700;
+  }
+  @media (max-width: 640px) {
+    .split { grid-template-columns: 1fr; }
+    .wrap { padding: 2rem 1rem 4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>CAT-Sim — Architecture Q&amp;A</h1>
+  <p class="sub">An in-depth walkthrough of the eight questions, grounded in the actual code. CAT-Sim is a consent-based phishing-simulation and cybersecurity-awareness-training platform; everything below traces a claim back to the file and mechanism that enforces it.</p>
+  <div class="badges">
+    <span class="badge">Project: CAT-Sim (go-phish)</span>
+    <span class="badge">Express + PostgreSQL</span>
+    <span class="badge">React + Vite</span>
+    <span class="badge">Single-origin deploy</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>The eight questions</strong>
+  <ol>
+    <li><a href="#q1">What the frontend handles vs. what the backend handles</a></li>
+    <li><a href="#q2">Why React? What role does Vite play?</a></li>
+    <li><a href="#q3">How the frontend sends a request and receives a response</a></li>
+    <li><a href="#q4">Why PostgreSQL, and how the tables relate</a></li>
+    <li><a href="#q5">Deploying on Render, and what <code>render.yaml</code> does</a></li>
+    <li><a href="#q6">Where consent and campaign status are checked before sending</a></li>
+    <li><a href="#q7">Recording a submission without storing the values — and whether they can leak to logs</a></li>
+    <li><a href="#q8">Keyed email hashes: matching recipients without storing addresses</a></li>
+  </ol>
+</nav>
+
+<!-- ===================================================================== -->
+<h2 id="q1"><span class="qnum">1</span>What does the frontend handle, and what does the backend handle?</h2>
+
+<p class="lead">The short version: <strong>the frontend is a presentation layer with no secrets and no authority</strong>; <strong>the backend owns every decision that matters</strong> — auth, consent, persistence, email delivery, quiz scoring, and every privacy guardrail. If a rule protects a person, it lives in the backend and is pinned by a named test. The frontend is deliberately unable to break those rules even if it tried.</p>
+
+<p>The repository is an npm-workspaces monorepo with two workspaces:</p>
+
+<div class="split fe">
+  <div>
+    <h4>Frontend — <code>frontend/</code> (React + Vite)</h4>
+    <p>A single-page app served to the browser. A tiny hash-based switch in <span class="filepath">src/App.jsx</span> selects one of four surfaces:</p>
+    <ul>
+      <li><strong>Public landing page</strong> (<code>landing/</code>) — marketing screen. Collects <em>nothing</em>: no form, no field.</li>
+      <li><strong>Admin console</strong> at <code>#/admin</code> (<code>admin/</code>) — login, campaign CRUD &amp; lifecycle, cohorts/consent, participant roster, the Send panel, and the analytics dashboard.</li>
+      <li><strong>Public CAT learning site</strong> at <code>#/learn</code> (<code>learn/</code>) — lessons, resource library, and knowledge-check quizzes.</li>
+      <li><strong>Enrollment / training view</strong> at <code>#/enroll/&lt;token&gt;</code> (<code>enroll/</code>) — where an auto-enrolled participant completes their training.</li>
+    </ul>
+    <p>Its job is <strong>rendering, client-side routing, form UX, and calling the API</strong> over relative <code>fetch('/api/...')</code>. It holds a JWT in <code>localStorage</code> and puts it in an <code>Authorization</code> header. Sensitive inputs (the recipient roster, a raw participant address) live only in transient component state — never in <code>localStorage</code>, never in a URL.</p>
+  </div>
+  <div>
+    <h4>Backend — <code>backend/</code> (Express + PostgreSQL)</h4>
+    <p>An Express API (with Knex over PostgreSQL) that owns all state and all sensitive logic:</p>
+    <ul>
+      <li><strong>Auth &amp; roles</strong> — JWT login; two roles, <code>program_admin</code> and <code>researcher</code>, gated per route.</li>
+      <li><strong>The data model</strong> — cohorts, participants, campaigns, interactions, modules, quizzes, assignments.</li>
+      <li><strong>The guardrails</strong> — the consent gate, the campaign-status/pause gate, identifier hashing, discarding form bodies, keeping bodies out of logs, server-side quiz scoring, and k-anonymised analytics.</li>
+      <li><strong>Participant-facing pages</strong> — the tracked link (<code>/t</code>), the server-rendered decoy sign-in page and disclosure (<code>/sim</code>, <em>no client JS</em>), and the training endpoints (<code>/api/enroll</code>).</li>
+      <li><strong>Email delivery</strong> via a pluggable mailer.</li>
+      <li>In production it also <strong>serves the built SPA</strong> (single origin — see Q5).</li>
+    </ul>
+  </div>
+</div>
+
+<p>A useful way to remember the split: the <strong>admin console can only ask the API to do things</strong>; whether they are <em>allowed</em> is decided server-side. For example, the console never has a "set consent = granted" edit — the client's own API wrapper omits it because the backend refuses to move consent through an ordinary <code>PATCH</code> (<span class="filepath">frontend/src/admin/api.js</span>). And the quiz answer key is stripped server-side, so it never reaches the browser at all.</p>
+
+<!-- ===================================================================== -->
+<h2 id="q2"><span class="qnum">2</span>Why did you choose React? What role does Vite play?</h2>
+
+<h3>Why React</h3>
+<p>The centre of gravity in this product is the <strong>admin console</strong> — a stateful, multi-panel screen: a campaign list with lifecycle controls, a cohort/consent panel, a participant roster, a Send panel, an analytics dashboard, and a phase-comparison view. That is exactly the shape of problem a component model handles well:</p>
+<ul>
+  <li><strong>Composability &amp; local state.</strong> Each panel (<code>SendPanel</code>, <code>CampaignAnalytics</code>, <code>ConsentControl</code>, <code>CohortPanel</code>, <code>ParticipantRoster</code>, <code>PhaseComparison</code>) is a self-contained component owning its own state — including the deliberately <em>transient</em> roster in <code>SendPanel</code> that must never be persisted.</li>
+  <li><strong>Testability.</strong> The frontend is covered by component tests (Vitest + Testing Library) sitting next to each component — <code>SendPanel.test.jsx</code>, <code>ConsentControl.test.jsx</code>, <code>CampaignAnalytics.test.jsx</code>, and so on. These pin behaviour like "the receipt is aggregate-only" and "Send is disabled unless the campaign is active" on the client side too, mirroring the backend.</li>
+  <li><strong>A large, well-understood ecosystem</strong> for the learning site's content rendering and the two design systems (the "Civic" app system and the "Signal" marketing system, both documented in <code>App.jsx</code>).</li>
+</ul>
+<p>Notably, the app is <strong>deliberately minimal about dependencies</strong>: routing is a hand-rolled hash switch (<code>useHashRoute</code> in <code>App.jsx</code>), not React Router, and the CAT site uses a small dependency-free, script-safe Markdown renderer rather than a heavy library. React gives the component/testing benefits without pulling in a framework.</p>
+
+<h3>What Vite does</h3>
+<p><span class="filepath">frontend/vite.config.js</span></p>
+<p>Vite is the frontend <strong>build tool and dev server</strong>. It plays three concrete roles here:</p>
+<ol>
+  <li><strong>Dev server with an API proxy.</strong> In development Vite serves the app on <code>:5173</code> and proxies <code>/api</code> to the backend on <code>:4000</code>. Because the client calls the API with <em>relative</em> paths, this proxy is what lets it reach the backend <em>without any CORS setup</em> in dev — the browser sees one origin.
+    <pre><code>server: {
+  port: 5173,
+  proxy: { '/api': 'http://localhost:4000' },
+}</code></pre>
+  </li>
+  <li><strong>Production build.</strong> <code>npm run build</code> produces static, fingerprinted assets in <code>frontend/dist</code>, which Express serves in production (single origin — Q5). Vite fingerprints asset filenames, which is why <code>app.js</code> can cache them immutably while keeping <code>index.html</code> uncached.</li>
+  <li><strong>Test runner.</strong> The same config declares the Vitest setup (<code>jsdom</code> environment, <code>setupTests.js</code>), so unit tests and the app share one toolchain.</li>
+</ol>
+<div class="callout">
+  <strong class="label">Deployment gotcha worth knowing</strong>
+  Vite lives in <code>devDependencies</code>. Because the deploy sets <code>NODE_ENV=production</code>, a plain <code>npm ci</code> would <em>omit</em> Vite and the build would die on <code>vite: not found</code>. That is why the Render build command is <code>npm ci --include=dev &amp;&amp; npm run build</code> — the <code>--include=dev</code> is required, not defensive.
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="q3"><span class="qnum">3</span>Show how the frontend sends a request to the backend and receives a response.</h2>
+
+<p>Every admin call goes through one wrapper in <span class="filepath">frontend/src/admin/api.js</span>. It adds the bearer token, sets the content type, parses the JSON envelope, and normalises errors:</p>
+
+<pre><code>async function request(path, { method = 'GET', body, token = getToken() } = {}) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`/api${path}`, {           // relative path → same origin
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  let payload = null;
+  try { payload = await res.json(); } catch (_e) { payload = null; }
+
+  if (!res.ok) {                                      // backend failure shape: { error }
+    const err = new Error((payload &amp;&amp; payload.error) || `request_failed_${res.status}`);
+    err.status = res.status;
+    err.code = payload &amp;&amp; payload.error;
+    throw err;
+  }
+  return payload;                                     // success shape: { data } / { token, admin }
+}</code></pre>
+
+<p>The backend answers with a consistent envelope: <code>{ data: ... }</code> (or <code>{ token, admin }</code> for login) on success, and <code>{ error: "&lt;code&gt;" }</code> with a non-2xx status on failure. The client maps a non-<code>ok</code> response to a thrown <code>Error</code> carrying <code>.status</code> and <code>.code</code>.</p>
+
+<h3>A concrete round trip: sending a campaign</h3>
+<p>The Send panel calls <code>api.sendCampaign(id, recipients)</code>, which is just:</p>
+<pre><code>sendCampaign: (id, recipients, { resend = false } = {}) =>
+  request(`/campaigns/${id}/send`, { method: 'POST', body: { recipients, resend } }),</code></pre>
+
+<figure>
+<svg viewBox="0 0 860 470" role="img" aria-label="Sequence diagram of the send-campaign request">
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2563eb"/></marker>
+    <marker id="arrowr" markerWidth="9" markerHeight="9" refX="1" refY="3" orient="auto"><path d="M7,0 L0,3 L7,6 Z" fill="#17803d"/></marker>
+  </defs>
+  <!-- lifelines -->
+  <g font-family="system-ui, sans-serif" font-size="12.5" font-weight="600" text-anchor="middle" fill="#1f2430">
+    <rect x="40" y="18" width="130" height="34" rx="7" fill="#eff4ff" stroke="#c9d8f7"/><text x="105" y="40">Admin console</text>
+    <rect x="230" y="18" width="150" height="34" rx="7" fill="#eff4ff" stroke="#c9d8f7"/><text x="305" y="40">Express app.js</text>
+    <rect x="440" y="18" width="170" height="34" rx="7" fill="#eff4ff" stroke="#c9d8f7"/><text x="525" y="40">campaigns.js route</text>
+    <rect x="670" y="18" width="160" height="34" rx="7" fill="#eff4ff" stroke="#c9d8f7"/><text x="750" y="40">delivery + DB</text>
+  </g>
+  <g stroke="#c9ccd6" stroke-dasharray="3 3">
+    <line x1="105" y1="52" x2="105" y2="440"/>
+    <line x1="305" y1="52" x2="305" y2="440"/>
+    <line x1="525" y1="52" x2="525" y2="440"/>
+    <line x1="750" y1="52" x2="750" y2="440"/>
+  </g>
+  <g font-family="system-ui, sans-serif" font-size="11.5" fill="#1f2430">
+    <!-- 1 -->
+    <line x1="105" y1="80" x2="300" y2="80" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <text x="107" y="74">POST /api/campaigns/:id/send</text>
+    <text x="107" y="94" fill="#5b6472">Bearer &lt;jwt&gt; · body {recipients, resend}</text>
+    <!-- 2 -->
+    <line x1="305" y1="130" x2="305" y2="130"/>
+    <rect x="230" y="118" width="150" height="30" rx="5" fill="#fff8ec" stroke="#f0c37a"/>
+    <text x="305" y="137" text-anchor="middle">json parse · log metadata only</text>
+    <!-- 3 -->
+    <line x1="305" y1="175" x2="520" y2="175" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <text x="312" y="169">requireAuth → requireRole(program_admin)</text>
+    <!-- 4 -->
+    <line x1="525" y1="215" x2="745" y2="215" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <text x="532" y="209">sendCampaign({...})</text>
+    <rect x="670" y="228" width="175" height="66" rx="6" fill="#ecf7f0" stroke="#bfe3cc"/>
+    <text x="757" y="248" text-anchor="middle">status === 'active'?</text>
+    <text x="757" y="265" text-anchor="middle">hash → match → consent</text>
+    <text x="757" y="282" text-anchor="middle">gate → mail (never stored)</text>
+    <!-- 5 return -->
+    <line x1="530" y1="330" x2="750" y2="330" stroke="#17803d" stroke-width="1.6" marker-start="url(#arrowr)"/>
+    <text x="757" y="324" text-anchor="end">aggregate summary</text>
+    <!-- 6 -->
+    <line x1="105" y1="385" x2="525" y2="385" stroke="#17803d" stroke-width="1.6" marker-start="url(#arrowr)"/>
+    <text x="112" y="379">200 { data: summary }  (counts only, no per-address result)</text>
+    <line x1="105" y1="420" x2="305" y2="420" stroke="#17803d" stroke-width="1.6" marker-start="url(#arrowr)"/>
+    <text x="112" y="414" fill="#b42318">or non-2xx { error: "cannot_send_from_draft" }</text>
+  </g>
+</svg>
+<figcaption>The send round trip. The client sends a relative POST with a bearer token; the response is a strict envelope — <code>{ data }</code> or <code>{ error }</code>.</figcaption>
+</figure>
+
+<p>Step by step:</p>
+<ol class="steps">
+  <li>The client issues <code>POST /api/campaigns/:id/send</code> to the same origin, with <code>Authorization: Bearer &lt;jwt&gt;</code> and a JSON body <code>{ recipients, resend }</code>. (In dev, Vite's proxy forwards <code>/api</code> to <code>:4000</code>; in prod the same Express process answers directly.)</li>
+  <li>Express parses the JSON body (<code>express.json()</code>), and the request logger records <em>only</em> method/path/status/duration — never the body (Q7).</li>
+  <li>The <code>campaigns</code> router runs <code>requireAuth</code>, then <code>requireRole(program_admin)</code> for the write section. A researcher's token is rejected here.</li>
+  <li>The route calls <code>sendCampaign(...)</code>, which enforces the campaign-status and consent gates (Q6), hashes each raw address to match a stored participant, and uses the address only as the mail recipient — persisting nothing.</li>
+  <li>The service returns an <strong>aggregate summary</strong> (counts per outcome, withholding reasons), which the route wraps as <code>{ data: summary }</code>. On a rule violation it throws an <code>HttpError</code> and the central error handler answers <code>{ error: "&lt;code&gt;" }</code> with the right status (e.g. <code>409 cannot_send_from_draft</code>).</li>
+</ol>
+
+<div class="callout">
+  <strong class="label">One deliberate exception to the wrapper</strong>
+  The analytics CSV export cannot be a plain <code>&lt;a href download&gt;</code>: the bearer token is a <em>header</em> credential and a link carries no headers, so the download would arrive as a <code>401</code>. So <code>fetchAnalyticsExport()</code> uses <code>fetch</code> with the auth header and saves the returned blob. Same request pattern, just handling a binary body instead of JSON.
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="q4"><span class="qnum">4</span>Why did you choose PostgreSQL, and how are your database tables related?</h2>
+
+<h3>Why PostgreSQL</h3>
+<p>The whole product rests on <strong>relational invariants that must hold at the data layer, not just in application code</strong> — and Postgres lets the schema enforce them:</p>
+<ul>
+  <li><strong>Foreign keys with meaningful delete behaviour.</strong> A cohort can't be dropped while it still has participants (<code>onDelete('RESTRICT')</code>); deleting a campaign cascades to its interactions; deleting a module used by an assignment is restricted. These are integrity rules the DB guarantees.</li>
+  <li><strong>CHECK constraints encode the state machines.</strong> <code>cohorts.consent_status</code> is constrained to <code>pending | granted | withdrawn</code>; <code>campaigns.status</code> to <code>draft | active | paused | completed | archived</code>; <code>campaigns.enrollment_trigger</code> to <code>clicked | submitted</code>; <code>quizzes.pass_threshold</code> to <code>0..100</code>. Illegal values can't be written even by a buggy caller.</li>
+  <li><strong>UNIQUE constraints back the guardrails.</strong> <code>participants.email_or_phone_hash</code> is unique (dedup, Q8); <code>interactions(campaign_id, participant_id)</code> is unique (one tracking token per target); <code>training_assignments(participant_id, learning_module_id, campaign_id)</code> is unique (idempotent enrollment — the enrollment service even relies on this to survive a race).</li>
+  <li><strong>Native UUID primary keys</strong> via <code>gen_random_uuid()</code>, so IDs aren't guessable sequential integers.</li>
+  <li><strong>JSONB</strong> for the quiz question bank (<code>quizzes.questions</code>), giving schema flexibility for the answer bank while everything else stays strongly typed.</li>
+  <li><strong>Transactions and mature managed hosting</strong> (Render/Neon/Supabase), with TLS negotiated in production (<code>knexfile.js</code>).</li>
+</ul>
+<p>Access goes through <strong>Knex</strong>: migrations under <code>backend/migrations/</code> define the schema; a thin repository layer (<code>backend/src/repositories/</code>) wraps queries. The repositories are where the "no raw address ever reaches the DB" rule is physically true — <code>participants.js</code> hashes on the way in, and <code>interactions.js</code> has no method (and the table no column) able to hold a submitted value.</p>
+
+<h3>How the tables relate</h3>
+<figure>
+<svg viewBox="0 0 840 520" role="img" aria-label="Entity relationship diagram">
+  <defs>
+    <marker id="one" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,1 L2,11" stroke="#5b6472" stroke-width="1.4"/></marker>
+    <marker id="many" markerWidth="14" markerHeight="14" refX="2" refY="6" orient="auto"><path d="M12,1 L2,6 L12,11" fill="none" stroke="#5b6472" stroke-width="1.4"/></marker>
+  </defs>
+  <g font-family="system-ui, sans-serif" font-size="12">
+    <!-- cohorts -->
+    <g>
+      <rect x="40" y="40" width="180" height="86" rx="8" fill="#eff4ff" stroke="#2563eb"/>
+      <text x="52" y="60" font-weight="700" fill="#2563eb">cohorts</text>
+      <text x="52" y="80" fill="#1f2430">id (uuid) PK</text>
+      <text x="52" y="98" fill="#1f2430">consent_status</text>
+      <text x="52" y="116" fill="#5b6472" font-size="10.5">pending|granted|withdrawn</text>
+    </g>
+    <!-- participants -->
+    <g>
+      <rect x="40" y="210" width="200" height="104" rx="8" fill="#fff" stroke="#7c3aed"/>
+      <text x="52" y="230" font-weight="700" fill="#7c3aed">participants</text>
+      <text x="52" y="250" fill="#1f2430">id PK</text>
+      <text x="52" y="268" fill="#1f2430">cohort_id FK</text>
+      <text x="52" y="286" fill="#1f2430">email_or_phone_hash ★</text>
+      <text x="52" y="304" fill="#1f2430">opted_out, role, dept</text>
+    </g>
+    <!-- campaigns -->
+    <g>
+      <rect x="330" y="40" width="200" height="104" rx="8" fill="#eff4ff" stroke="#2563eb"/>
+      <text x="342" y="60" font-weight="700" fill="#2563eb">campaigns</text>
+      <text x="342" y="80" fill="#1f2430">id PK</text>
+      <text x="342" y="98" fill="#1f2430">status, phase_label</text>
+      <text x="342" y="116" fill="#1f2430">enrollment_trigger</text>
+      <text x="342" y="134" fill="#1f2430">cloned_from_campaign_id ↺</text>
+    </g>
+    <!-- interactions -->
+    <g>
+      <rect x="330" y="230" width="220" height="122" rx="8" fill="#ecf7f0" stroke="#17803d"/>
+      <text x="342" y="250" font-weight="700" fill="#17803d">interactions</text>
+      <text x="342" y="270" fill="#1f2430">id PK</text>
+      <text x="342" y="288" fill="#1f2430">campaign_id FK · participant_id FK</text>
+      <text x="342" y="306" fill="#1f2430">tracking_token (unique)</text>
+      <text x="342" y="324" fill="#1f2430">opened / clicked / submitted /</text>
+      <text x="342" y="342" fill="#1f2430">disclosed (booleans + ts only)</text>
+    </g>
+    <!-- learning_modules -->
+    <g>
+      <rect x="620" y="40" width="180" height="86" rx="8" fill="#fff" stroke="#5b6472"/>
+      <text x="632" y="60" font-weight="700" fill="#1f2430">learning_modules</text>
+      <text x="632" y="80" fill="#1f2430">id PK · slug</text>
+      <text x="632" y="98" fill="#1f2430">published</text>
+      <text x="632" y="116" fill="#1f2430">body_markdown</text>
+    </g>
+    <!-- quizzes -->
+    <g>
+      <rect x="620" y="180" width="180" height="82" rx="8" fill="#fff" stroke="#5b6472"/>
+      <text x="632" y="200" font-weight="700" fill="#1f2430">quizzes</text>
+      <text x="632" y="220" fill="#1f2430">id PK · module_id FK</text>
+      <text x="632" y="238" fill="#1f2430">pass_threshold</text>
+      <text x="632" y="256" fill="#1f2430">questions (jsonb ★key)</text>
+    </g>
+    <!-- training_assignments -->
+    <g>
+      <rect x="600" y="330" width="220" height="130" rx="8" fill="#ecf7f0" stroke="#17803d"/>
+      <text x="612" y="350" font-weight="700" fill="#17803d">training_assignments</text>
+      <text x="612" y="370" fill="#1f2430">id PK</text>
+      <text x="612" y="388" fill="#1f2430">participant_id FK</text>
+      <text x="612" y="406" fill="#1f2430">learning_module_id FK</text>
+      <text x="612" y="424" fill="#1f2430">campaign_id FK (nullable)</text>
+      <text x="612" y="442" fill="#1f2430">assigned_reason · status</text>
+    </g>
+
+    <!-- edges -->
+    <g stroke="#5b6472" stroke-width="1.4" fill="none">
+      <!-- cohort 1—* participant -->
+      <path d="M130,126 L130,210" marker-start="url(#one)" marker-end="url(#many)"/>
+      <!-- campaign 1—* interaction -->
+      <path d="M430,144 L430,230" marker-start="url(#one)" marker-end="url(#many)"/>
+      <!-- participant 1—* interaction -->
+      <path d="M240,286 L330,290" marker-start="url(#one)" marker-end="url(#many)"/>
+      <!-- module 1—* quiz -->
+      <path d="M710,126 L710,180" marker-start="url(#one)" marker-end="url(#many)"/>
+      <!-- module 1—* assignment -->
+      <path d="M760,126 C800,200 780,270 745,330" marker-start="url(#one)" marker-end="url(#many)"/>
+      <!-- participant 1—* assignment -->
+      <path d="M240,300 C420,470 520,420 600,410" marker-start="url(#one)" marker-end="url(#many)"/>
+      <!-- campaign 1—* assignment (nullable) -->
+      <path d="M530,120 C640,150 690,250 690,330" marker-start="url(#one)" marker-end="url(#many)" stroke-dasharray="4 3"/>
+    </g>
+  </g>
+</svg>
+<figcaption>★ = keyed hash / private answer key, never exposed. Dashed edge = nullable FK (<code>SET NULL</code>). The green tables hold behavioural data only — no credential-shaped column.</figcaption>
+</figure>
+
+<table>
+  <thead><tr><th>Relationship</th><th>Columns &amp; delete rule</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>cohorts</code> 1 → * <code>participants</code></td><td><code>participants.cohort_id</code> · <code>RESTRICT</code></td><td>A cohort is the unit of consent. You can't delete a cohort out from under its people.</td></tr>
+    <tr><td><code>campaigns</code> 1 → * <code>interactions</code></td><td><code>interactions.campaign_id</code> · <code>CASCADE</code></td><td>Every simulation target is one interaction row under a campaign.</td></tr>
+    <tr><td><code>participants</code> 1 → * <code>interactions</code></td><td><code>interactions.participant_id</code> · <code>CASCADE</code></td><td>Unique on <code>(campaign, participant)</code> — one tracked link per person per campaign.</td></tr>
+    <tr><td><code>learning_modules</code> 1 → * <code>quizzes</code></td><td><code>quizzes.learning_module_id</code> · <code>CASCADE</code></td><td>A module's knowledge check. The answer key lives in <code>questions</code> JSONB and is stripped before it reaches a browser.</td></tr>
+    <tr><td><code>participants</code>/<code>modules</code>/<code>campaigns</code> → <code>training_assignments</code></td><td>participant <code>CASCADE</code>, module <code>RESTRICT</code>, campaign <code>SET NULL</code> (nullable)</td><td>The output of the auto-enrollment loop. Unique on <code>(participant, module, campaign)</code> makes enrollment idempotent.</td></tr>
+    <tr><td><code>campaigns</code> ↺ self</td><td><code>cloned_from_campaign_id</code></td><td>Phase II re-tests: a clone links back to its source for phase-over-phase comparison.</td></tr>
+    <tr><td><code>admin_users</code> (standalone)</td><td>—</td><td>Operators. Passwords stored as salted scrypt verifiers, never returned in a response.</td></tr>
+  </tbody>
+</table>
+
+<blockquote><p>Notice what the <code>interactions</code> table <em>cannot</em> do: its migration deliberately has no <code>username</code>, <code>password</code>, <code>email</code>, <code>form_data</code>, or <code>payload</code> column. The schema itself is a guardrail — there is nowhere to put a submitted credential even if someone tried (pinned by <code>schema.interactions.guardrail.test.js</code>). This is why Q7 works.</p></blockquote>
+
+<!-- ===================================================================== -->
+<h2 id="q5"><span class="qnum">5</span>How did you deploy the application on Render, and what does <code>render.yaml</code> do?</h2>
+
+<p><span class="filepath">render.yaml</span></p>
+<p><code>render.yaml</code> is a <strong>Render Blueprint</strong> — infrastructure-as-code. Rather than clicking services into existence, you commit this file and, in the Render dashboard, choose <em>New → Blueprint → point at this repo</em>. Render reads the file and provisions everything in it. The whole deploy is <strong>one step</strong>; there is no manual second stage.</p>
+
+<h3>What the file declares</h3>
+<p>Two resources: one <strong>web service</strong> and one <strong>Postgres database</strong>.</p>
+
+<h4>The database</h4>
+<pre><code>databases:
+  - name: catsim-db
+    databaseName: catsim
+    user: catsim
+    plan: free</code></pre>
+<p>A free Postgres instance. (Caveat baked into the comments: Render <em>deletes a free Postgres instance 30 days after creation</em> — fine for a throwaway URL, not for a real study.)</p>
+
+<h4>The web service — build &amp; start</h4>
+<pre><code>buildCommand: npm ci --include=dev &amp;&amp; npm run build
+startCommand: npm run bootstrap &amp;&amp; npm start
+healthCheckPath: /health</code></pre>
+<ul>
+  <li><strong>Build:</strong> installs deps (<em>including</em> dev deps, because Vite is a dev dep and <code>NODE_ENV=production</code> would otherwise omit it — see Q2) and builds the SPA into <code>frontend/dist</code>.</li>
+  <li><strong>Start:</strong> the free tier offers <em>no pre-deploy command and no shell</em>, so the schema can't be brought up as a separate manual stage. Instead <code>npm run bootstrap</code> (<code>backend/scripts/bootstrap.js</code>) runs at the start of every boot: it <strong>migrates every time</strong>, and <strong>seeds only a database that has never been seeded</strong>. Then <code>npm start</code> serves the API + SPA on <code>$PORT</code>.</li>
+  <li><strong>Health check:</strong> Render polls <code>/health</code> to decide the instance is live.</li>
+</ul>
+<div class="callout danger">
+  <strong class="label">Why the seed guard is load-bearing</strong>
+  The seeds are <em>destructive</em> — <code>01_demo_data.js</code> clears cohorts, participants and interactions before inserting. A free web service <em>restarts every time it wakes from idle</em>. An unguarded seed would therefore erase collected behavioural data on every cold start. <code>SEED_ON_BOOT</code> controls it: <code>auto</code> (default) seeds only an unseeded DB, <code>never</code> skips, <code>force</code> reseeds and discards data.
+</div>
+
+<h4>The environment variables — and the subtle ones</h4>
+<table>
+  <thead><tr><th>Variable</th><th>How it's set</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>NODE_ENV</code></td><td><code>value: production</code></td><td>Selects the production knex config (TLS, larger pool).</td></tr>
+    <tr><td><code>DATABASE_URL</code></td><td><code>fromDatabase</code> → catsim-db connection string</td><td>Render's <em>internal</em> connection string — stays on the private network.</td></tr>
+    <tr><td><code>PGSSLMODE</code></td><td><code>value: disable</code></td><td>The internal URL is on Render's private network where Postgres neither offers nor needs TLS. (Drop this for an external DB, and knexfile negotiates TLS.)</td></tr>
+    <tr><td><code>IDENTITY_HASH_SECRET</code>, <code>JWT_SECRET</code></td><td><code>generateValue: true</code></td><td>Both default to insecure dev placeholders in code. A known hash secret makes stored contact hashes guessable; a known JWT secret lets admin sessions be forged. Generated per service, never shown in the repo.</td></tr>
+    <tr><td><code>PUBLIC_BASE_URL</code></td><td><em>intentionally absent</em></td><td>Config falls back to Render's own <code>RENDER_EXTERNAL_URL</code>, so tracked links resolve to the real host with no manual step. (Getting this wrong is the most damaging misconfig — it's the origin a participant's mail client resolves.)</td></tr>
+    <tr><td><code>MAIL_PROVIDER</code></td><td><code>sync: false</code> (dashboard-managed)</td><td>Left unset → config falls back to the hermetic <code>console</code> provider (records metadata, sends <em>nothing</em>). It's <code>sync: false</code> rather than a committed <code>value:</code> on purpose (see box).</td></tr>
+    <tr><td><code>SIM_BRAND_NAME</code></td><td><code>value:</code> a fictional bank</td><td>Guardrail: the decoy must never impersonate a real organisation.</td></tr>
+    <tr><td><code>MAIL_FROM</code></td><td><code>sync: false</code></td><td>Dashboard-managed for the same revert reason as <code>MAIL_PROVIDER</code>; defaults to a safe non-routable placeholder.</td></tr>
+    <tr><td><code>SEED_ADMIN_PASSWORD</code></td><td><code>generateValue: true</code></td><td>Bootstrap <em>refuses to seed in production without it</em> rather than installing the committed dev password. Read it from the dashboard to log in the first time.</td></tr>
+    <tr><td><code>SEED_ON_BOOT</code></td><td><code>value: auto</code></td><td>The safe-restart guard above.</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <strong class="label">Why <code>MAIL_PROVIDER</code> is <code>sync: false</code>, not a committed value</strong>
+  A hard-coded <code>value:</code> in the blueprint is <em>blueprint-managed</em>: Render reverts any dashboard change back to it on the next blueprint sync (which a redeploy runs). A committed <code>value: console</code> would silently reset a dashboard <code>MAIL_PROVIDER=mailgun</code> back to <code>console</code> and send every campaign through the no-op provider. Left unset, the code still falls back to <code>console</code> (so the default is still hermetic), while a value you set in the dashboard actually persists.
+</div>
+
+<h3>The deployment shape: single origin</h3>
+<p>CAT-Sim deploys as a <strong>single origin</strong> — one Node process serves the API <em>and</em> the built React app. This is not a preference: the client calls the API with relative paths and the Express app registers <em>no CORS middleware</em>, so a split frontend/backend deploy would fail in the browser on every request. <code>app.js</code> mounts <code>frontend/dist</code> when present and falls back to <code>index.html</code> for app routes, while leaving <code>/api</code>, <code>/t</code>, <code>/sim</code> and <code>/health</code> to their real handlers (so an unknown API path still 404s as JSON, not as the SPA document).</p>
+<p>Single origin also collapses the two participant-facing base URLs (<code>PUBLIC_BASE_URL</code> for <code>/t</code> &amp; <code>/sim</code>, <code>APP_BASE_URL</code> for the SPA's <code>#/learn</code> &amp; <code>#/enroll</code>) into one host, so no origin overrides are needed.</p>
+<p><strong>Free-tier caveats to remember:</strong> the web service spins down after ~15 minutes idle (the first tracked-link click after a quiet spell waits out a cold start), and — by default — <em>no email is sent</em> (<code>MAIL_PROVIDER=console</code>), so a test send "succeeds" and shows a count yet nothing leaves the service.</p>
+
+<!-- ===================================================================== -->
+<h2 id="q6"><span class="qnum">6</span>Where does the backend check consent and campaign status before sending an email?</h2>
+
+<p class="lead">There are <strong>two independent gates</strong> in the send path, checked in a fixed order: first <strong>campaign status</strong> (once, for the whole send), then <strong>consent</strong> (per recipient). Both live in <span class="filepath">backend/src/services/delivery.js</span>, and consent routes through the single predicate in <span class="filepath">backend/src/services/consent.js</span>.</p>
+
+<h3>Gate 1 — campaign status must be <code>active</code></h3>
+<p>Before anything is hashed or matched, <code>sendCampaign</code> refuses a non-active campaign outright:</p>
+<pre><code>const campaign = await repos.campaigns.findById(campaignId);
+if (!campaign) throw notFound('campaign_not_found');
+// A campaign only sends while active. draft/paused/completed/archived all refuse.
+if (campaign.status !== 'active') {
+  throw new HttpError(409, `cannot_send_from_${campaign.status}`);
+}</code></pre>
+<p>This is also why pausing a campaign is a real rollback: a paused campaign can't send. (The route in front of this, <code>POST /api/campaigns/:id/send</code>, is additionally gated to <code>program_admin</code> — a researcher can't even reach the handler.)</p>
+
+<h3>Gate 2 — every recipient must be deliverable (consent)</h3>
+<p>Inside the send loop, each matched participant is run through the one predicate that decides "may we contact this person":</p>
+<pre><code>// Consent gate — the single predicate. Fail closed.
+const cohort = await repos.cohorts.findById(participant.cohort_id);
+if (!isDeliverable(participant, cohort)) {
+  summary.skipped.not_deliverable += 1;
+  const reason = ineligibilityReason(participant, cohort) || 'not_deliverable';
+  summary.ineligible_reasons[reason] = (summary.ineligible_reasons[reason] || 0) + 1;
+  continue;   // never handed to the mailer
+}</code></pre>
+<p>And the predicate itself (<code>services/consent.js</code>) is a pure, fail-closed function — a participant is deliverable only when their cohort's consent is <code>granted</code> <em>and</em> they have not individually opted out:</p>
+<pre><code>function isDeliverable(participant, cohort) {
+  if (!participant || !cohort) return false;
+  if (participant.opted_out === true) return false;
+  return isCohortConsented(cohort);           // cohort.consent_status === 'granted'
+}</code></pre>
+
+<h3>Why it's structured this way</h3>
+<ul>
+  <li><strong>One source of truth.</strong> Both <code>sendCampaign</code> (Phase 5) and <code>notifyEnrollments</code> (Phase 8, the "you've been enrolled" email) call the <em>same</em> <code>isDeliverable</code> predicate. There is no second, divergent copy of the consent rule, and no code path that mails around it — pinned by <code>delivery.guardrail.test.js</code>.</li>
+  <li><strong>Fail closed.</strong> Any missing input, un-granted cohort, or individual opt-out returns <code>false</code>. Consent is never granted by omission.</li>
+  <li><strong>Defence in depth on the recording side.</strong> A separate gate, <code>services/campaignState.js</code>, governs whether a <em>paused</em> campaign records new behavioural flags or triggers enrollment on the participant-facing routes (<code>/t</code>, <code>/sim</code>, enrollment). That gate is deliberately <em>fail-open</em> (it governs behavioural flags, not a legal-safety guardrail, so a transient lookup hiccup never drops a live campaign's data) — the opposite stance from the consent gate, which fails closed. The enrollment service checks campaign status too, so no enrollment can be created for a halted campaign even via a direct call.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2 id="q7"><span class="qnum">7</span>Show how the system records a submission without storing the values entered. Could those values appear in logs?</h2>
+
+<p class="lead">When a participant "submits" the decoy login form, the backend records the single boolean <code>submitted = true</code> and <strong>discards every posted value</strong>. And no — those values cannot reach the logs, because the logger is built to never read a request body, query string, or headers.</p>
+
+<h3>How the submission is recorded</h3>
+<p><span class="filepath">backend/src/routes/sim.js</span> — the <code>POST /sim/:token</code> handler is the single most sensitive path, and it is written to <em>never touch <code>req.body</code></em>:</p>
+<pre><code>router.post('/:token', asyncHandler(async (req, res) => {
+  const interaction = await findInteraction(req.params.token);
+  if (interaction &amp;&amp; !(await isRecordingHalted(interaction))) {
+    const updated = interaction.submitted
+      ? interaction
+      : // No value argument — there is nothing to persist beyond the boolean.
+        (await interactions.markSubmitted(interaction.id)) || interaction;
+    await safeEnrollFromInteraction(updated);       // best-effort side effect
+  }
+  // 303 → force a GET on the disclosure page, and never echo the body back.
+  res.redirect(303, disclosurePath(req.params.token));
+}));</code></pre>
+<p>The write it performs, <code>interactions.markSubmitted(id)</code>, <strong>takes no value argument by design</strong>:</p>
+<pre><code>// Records THAT the dummy form was submitted. Deliberately accepts no field values.
+async function markSubmitted(id, at = new Date(), trx) {
+  return repo.update(id, { submitted: true, submitted_at: at }, trx);
+}</code></pre>
+<p>This is defended in three layers, so it can't quietly regress:</p>
+<ol>
+  <li><strong>The route</strong> never reads <code>req.body</code>.</li>
+  <li><strong>The repository</strong> has no method that accepts a submitted value.</li>
+  <li><strong>The schema</strong> has no column that could hold one (Q4). Pinned by <code>schema.interactions.guardrail.test.js</code> and <code>sim.form.guardrail.test.js</code>.</li>
+</ol>
+<p>Every submission then redirects (<code>303</code>) to the disclosure page — which renders even for an unknown token — so a participant always learns it was a simulation (transparency guardrail). The decoy pages are <em>server-rendered with no client JavaScript</em>, so nothing on the page can exfiltrate what was typed either.</p>
+
+<h3>Could those values appear in logs?</h3>
+<p><strong>No.</strong> The request logger in <span class="filepath">backend/src/middleware/requestLogger.js</span> is built around an <em>allow-list</em> of safe fields and is structurally unable to serialize a body:</p>
+<pre><code>const record = {
+  method: req.method,
+  // req.path excludes the query string; use it (not req.originalUrl)
+  // so tokens/values in query strings are never logged either.
+  path: req.path,
+  status: res.statusCode,
+  durationMs: Math.round(durationMs * 1000) / 1000,
+};
+// req.body / req.query / req.headers are intentionally NOT read.</code></pre>
+<p>The other places output is produced are equally careful:</p>
+<ul>
+  <li><strong>Central error handler</strong> (<code>app.js</code>) logs only request metadata plus the error's own <code>stack</code>/<code>message</code> — messages our own code controls — and only for <code>5xx</code>. It never echoes the body back to the client and never logs <code>4xx</code> client validation.</li>
+  <li><strong>The mailer</strong> re-throws provider errors in exactly one safe shape (<code>mailer: &lt;provider&gt; send failed (&lt;code&gt;)</code>), a status/errno only. Delivery's <code>safeFailureReason</code> trusts <em>only</em> that shape and buckets anything else as a generic <code>send_failed</code>, so a provider message that happened to echo a recipient address never lands in the summary or a warn line.</li>
+</ul>
+<div class="callout ok">
+  <strong class="label">Honest nuance</strong>
+  Express <em>does</em> parse the JSON/urlencoded body into <code>req.body</code> in memory (<code>express.json()</code> runs for all routes, because ordinary API routes need their bodies). The guarantee is not "the body is never parsed" — it's that <strong>nothing ever persists or logs it</strong>: the sim route ignores it, the logger can't read it, and it's discarded when the request ends. This whole property is re-verified end-to-end by <code>system.credential.audit.test.js</code>, which drives the integrated loop and proves no submitted value or raw address escapes through logs, traces, response bodies/headers, or the store.
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="q8"><span class="qnum">8</span>How do keyed email hashes work, and how can you match recipients without storing their email addresses?</h2>
+
+<p class="lead">The system never stores a raw email or phone number. It stores a <strong>keyed HMAC-SHA-256 digest</strong> of the normalised address. Because the same address always produces the same digest, you can match a recipient by hashing the address you already hold and looking up that digest — but you can't run the digest backwards to recover the address.</p>
+
+<h3>The hash</h3>
+<p><span class="filepath">backend/src/lib/hash.js</span></p>
+<pre><code>function normalizeIdentifier(raw) {
+  return String(raw).trim().toLowerCase();     // case/space variations collapse to one identity
+}
+
+function hashIdentifier(raw, secret = config.identityHashSecret) {
+  if (raw == null || String(raw).trim() === '') throw new Error('identifier is required');
+  return crypto
+    .createHmac('sha256', secret)              // KEYED — not a bare hash
+    .update(normalizeIdentifier(raw))
+    .digest('hex');
+}</code></pre>
+<p>Two properties make this work:</p>
+<ul>
+  <li><strong>Keyed (HMAC with <code>IDENTITY_HASH_SECRET</code>), not a plain SHA-256.</strong> Email addresses come from a small, guessable space — a bare hash would fall to an offline dictionary attack (hash every address in a leaked list, compare). Keying with a secret the attacker doesn't have makes that infeasible. This is why <code>render.yaml</code> generates the secret per service and never commits it, and why rotating it invalidates every stored hash (a breaking change).</li>
+  <li><strong>Deterministic.</strong> The same normalised address always maps to the same digest, so the digest is a stable pseudonymous key — usable for de-duplication and for per-participant linkage in the enrollment loop.</li>
+</ul>
+
+<h3>What's stored</h3>
+<p><span class="filepath">backend/migrations/…_create_participants.js</span> — the participant row carries a hashed identifier and <em>no raw column by design</em>:</p>
+<pre><code>table.string('email_or_phone_hash').notNullable().unique();   // hashed only
+// there is deliberately no `email` / `phone` column
+table.string('role');
+table.string('department');
+table.boolean('opted_out').notNullable().defaultTo(false);</code></pre>
+<p>The <code>unique</code> constraint is what makes the digest usable for dedup: one participant per address.</p>
+
+<h3>How matching works without the address on file</h3>
+<p>The raw address is <strong>supplied transiently at send time</strong> by the admin's roster (in the request body, which the logger never reads — Q7), and it's matched by hashing it and looking up the digest. From <span class="filepath">backend/src/repositories/participants.js</span>:</p>
+<pre><code>async function findByIdentifier(identifier, trx) {
+  // hash the raw address, then look up by the stored digest
+  return repo.findWhere({ email_or_phone_hash: hashIdentifier(identifier) }, trx);
+}</code></pre>
+<p>So the delivery loop (Q6) does this per recipient:</p>
+<ol class="steps">
+  <li>Take a raw address from the transient roster.</li>
+  <li><code>findByIdentifier(raw)</code> → hash it → look up the participant by digest. No match → counted as <code>skipped.unknown</code>, nothing stored.</li>
+  <li>Run the matched participant through the consent gate.</li>
+  <li>Use the raw address <strong>only</strong> as the mailer's <code>to</code> field — then let it fall out of scope. It is never written to any table or log.</li>
+</ol>
+
+<h3>The trade-off, stated plainly</h3>
+<p>This is <strong>pseudonymisation, not anonymisation</strong>, and that's the intended design. You <em>can</em> go address → digest (that's how matching, and the <code>POST /api/participants/lookup</code> endpoint for handling an opt-out request, work), but you <em>cannot</em> go digest → address. An attacker who steals the database gets a table of opaque HMAC digests with no key, so they can't recover who the participants are; and even a legitimate operator can't produce a roster of real addresses out of the stored data. The address only ever exists in memory for the moment of a send. That is the whole point of guardrail #6 (data minimisation) — the system is built <em>not</em> to be able to answer "which of my staff is at address X" from its own storage.</p>
+
+<footer class="doc">
+  <p>Every code excerpt above is drawn verbatim (lightly trimmed for length) from the CAT-Sim (<code>go-phish</code>) repository. Named guardrail tests referenced: <code>consent.guardrail</code>, <code>delivery.guardrail</code>, <code>enrollment.guardrail</code>, <code>sim.form.guardrail</code>, <code>schema.interactions.guardrail</code>, <code>logging</code>, <code>quiz.answerkey.guardrail</code>, <code>analytics.guardrail</code>, <code>pause.rollback.guardrail</code>, and <code>system.credential.audit</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>
